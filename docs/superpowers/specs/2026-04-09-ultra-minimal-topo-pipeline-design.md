@@ -29,14 +29,15 @@ src/
 ├── __init__.py
 ├── models/
 │   ├── __init__.py
-│   ├── tiny_vit.py          # TinyVisionTransformer class
-│   └── topo_loss.py         # TopoLoss module (independent of model)
+│   └── tiny_vit.py          # TinyVisionTransformer class
 ├── experiments/
 │   ├── __init__.py
-│   └── train.py             # Training loop, config loading
+│   └── train.py             # Training loop, config loading, TopoLoss integration
 ├── analysis/
 │   ├── __init__.py
-│   └── monosemanticity.py   # Selectivity scoring, statistical tests
+│   ├── monosemanticity.py   # Selectivity scoring, statistical tests
+│   ├── sae.py               # Stub for H2 (Superposition via SAE)
+│   └── patching.py          # Stub for H3 (Causal Purity via patching)
 ├── data/
 │   ├── __init__.py
 │   └── imagenet.py          # Dataset utilities (configurable class count)
@@ -54,17 +55,21 @@ results/
 └── summaries/               # Per-experiment markdown reports
 ```
 
+**External dependency:** `topoloss` library (pip installable) — no need to implement TopoLoss from scratch.
+
 ### 2.2 Module Boundaries
 
 | Module | Responsibility | Dependencies |
 |--------|---------------|--------------|
 | `models.tiny_vit` | Tiny ViT forward pass | PyTorch only |
-| `models.topo_loss` | TopoLoss computation given cortical positions | PyTorch only (no model dependency) |
-| `experiments.train` | Training loop, logging, checkpointing | models.*, data.*, utils.config |
+| `experiments.train` | Training loop, TopoLoss integration, logging, checkpointing | models.*, data.*, utils.config, topoloss |
 | `analysis.monosemanticity` | Score computation, stats | PyTorch, scipy |
+| `analysis.sae` | Stub for SAE analysis (H2) | — (TODO) |
+| `analysis.patching` | Stub for activation patching (H3) | — (TODO) |
 | `data.imagenet` | Dataset loading, transforms | torchvision, PIL |
 | `utils.config` | YAML config → dict | PyYAML |
 | `utils.visualization` | Plot generation | matplotlib, seaborn |
+| `topoloss` (external) | TopoLoss computation | PyTorch |
 
 **Migration safety rule:** No module imports from a different module's subdirectory except through public interfaces. This ensures you can swap `tiny_vit.py` → `vit_s_16.py` without touching anything else.
 
@@ -95,53 +100,69 @@ Input (B, 3, 128, 128)
   → Linear head (B, 100)     # 100-class classification
 ```
 
-### 3.3 Cortical Sheet Assignment
-
-Each output channel in **each attention layer** gets a fixed 2D position:
-- 128 channels → √128 ≈ 11.3 → use 11×12 grid (132 positions, 4 unused)
-- Positions are assigned once at initialization, never change
-- This creates the "cortical sheet" for TopoLoss computation
-- **Edge handling:** Boundary units only compute similarity with valid neighbors (non-padded positions). Padding positions are excluded from neighborhood definitions to avoid artificial edge effects.
-- TopoLoss is computed for **all 4 attention layers** and summed: `L_topo = Σ_l L_topo^l`
-
 ---
 
 ## 4. TopoLoss Implementation
 
-### 4.1 Formulation
+**We use the official TopoLoss library** from https://github.com/murtylab/topoloss (ICLR 2025 Spotlight) rather than implementing from scratch.
 
-Following TopoNets (Deb et al., 2025) — **weight-level smoothness**, not activation-level:
+### 4.1 Installation
 
+```bash
+pip install topoloss
+```
+
+### 4.2 Usage in Our Pipeline
+
+```python
+from topoloss import TopoLoss, LaplacianPyramid
+
+# Create TopoLoss targeting the output projection layers of attention blocks
+topo_loss = TopoLoss(
+    losses=[
+        LaplacianPyramid.from_layer(model.blocks[i].attn.proj)
+        for i in range(num_layers)
+    ]
+)
+
+# In training loop:
+loss_topo = topo_loss.compute(model=model)  # Returns scalar tensor
+(alpha * loss_topo).backward()
+```
+
+### 4.3 Formulation (from TopoNets paper)
+
+The library implements weight-level smoothness:
 ```
 For each pair of neighboring units (u, v) on cortical sheet:
   sim(u, v) = cosine_similarity(W_u, W_v)
 
 L_topo = -Σ_{(u,v) ∈ neighborhoods} sim(u, v) × exp(-dist(u, v) / σ)
-
-Total loss: L = L_CE + α × L_topo
 ```
 
-Where:
-- `W_u` = weight vector for unit u (the output projection weights for that channel)
-- `dist(u, v)` = Euclidean distance on the 2D cortical sheet
-- `σ` = length scale hyperparameter (default: 2.0)
-- `α` = topographic strength: {0, 0.1, 1.0}
+Key features of the library:
+- **Architecture-agnostic:** Works with any `nn.Linear` or `nn.Conv2d` layer
+- **Batch-independent:** Computed on weight matrices, not activations
+- **Differentiable:** Returns standard PyTorch tensor for `.backward()`
+- **Scheduling support:** `TauScheduler` for dynamic α annealing during training
 
-### 4.2 Implementation Details
+### 4.4 Cortical Sheet Assignment
 
-1. **Neighborhood definition:** 8-connected grid neighbors (up, down, left, right, diagonals)
-2. **Weight extraction:** Hook into the output projection layer of each attention block
-3. **Computation:** Cheap — only runs on weight matrices, not per-batch activations
-4. **Gradient flow:** TopoLoss contributes to weight updates through standard backprop
+The TopoLoss library handles cortical positions internally. We configure it via:
+- `LaplacianPyramid.from_layer(target_layer)` — specifies which layers get topographic pressure
+- Apply to output projection (`proj`) of each attention block in TinyViT
+- Positions assigned at initialization, fixed throughout training
 
-### 4.3 Key Design Decision
+### 4.5 Why Not Re-implement
 
-TopoLoss is implemented as a **standalone module** that takes:
-- Model weights (via parameter extraction)
-- Cortical position map
-- Hyperparameters (α, σ)
+The research plan explicitly states:
+> "Use TopoNets' open-source code (github.com/toponets) rather than re-implementing from scratch. The core contribution of this project is the analysis pipeline, not the training recipe."
 
-It returns a scalar loss. This means it works with **any model architecture**, not just TinyViT.
+Using the official library ensures:
+- Correctness (reproduces paper results)
+- No bugs in our TopoLoss implementation
+- Easy migration (same library works at all scales)
+- Saves implementation time
 
 ---
 
