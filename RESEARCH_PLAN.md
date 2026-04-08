@@ -1,9 +1,33 @@
 # Research Plan
 
-*This file should contain the detailed research plan extracted from the DOCX document.*
+## Complete Research Plan
+📄 **Full document:** [topo_monosemanticity_research_plan.md](topo_monosemanticity_research_plan.md)
 
-## Instructions
-Please manually copy the content from `topo_monosemanticity_research_plan.docx` into this file, or provide me with the key details so I can populate it properly.
+## Quick Summary
 
-## Alternative
-If you can provide the research plan details (objectives, methodology, experiments, timeline), I'll format and add them here.
+**Title:** Topographic Training as a Path to Monosemanticity
+
+**Domain:** NeuroAI x Mechanistic Interpretability
+
+**Duration:** 6-8 weeks (part-time)
+
+**Difficulty:** ★★★☆☆ Intermediate-Advanced
+
+**Target:** NeurIPS Neuro-AI Workshop / ICLR Mechanistic Interpretability Workshop
+
+### Central Hypotheses
+- **H1 (Polysemanticity):** Topographic training reduces polysemantic neurons
+- **H2 (Superposition):** SAE on topographic ViT requires fewer active features
+- **H3 (Causal Purity):** Activation patching of spatial clusters cleaner suppression
+- **H4 (Brain Alignment):** Spatial structure predicts fMRI voxel responses
+
+### Methodology Overview
+1. **Phase 1:** Model Training (3 variants on ImageNet-100)
+2. **Phase 2:** Monosemanticity Analysis (H1, H2)
+3. **Phase 3:** Causal Test (H3)
+4. **Phase 4:** Brain Alignment (H4)
+5. **Phase 5:** Write-up & Visualization
+
+---
+
+*For the complete detailed research plan with all methodology details, configurations, and experimental design, see [topo_monosemanticity_research_plan.md](topo_monosemanticity_research_plan.md)*
