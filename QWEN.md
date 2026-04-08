@@ -6,6 +6,12 @@
 ## Purpose: Research monosemanticity in neural networks using topological data analysis
 ## Start Date: 2026-04-09
 
+## Environment Management
+**ALWAYS use:** `venv` + `pip` for environment management
+**NEVER use:** conda/mamba
+**Activation:** `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
+**If venv doesn't exist:** Create it first with `python -m venv venv && source venv/bin/activate`
+
 ## Critical Rules for AI Assistants:
 
 1. **ALWAYS reference PROGRESS.md** before starting any work
