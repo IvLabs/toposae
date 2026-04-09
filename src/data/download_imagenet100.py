@@ -1,37 +1,36 @@
 #!/usr/bin/env python
-"""Download and prepare ImageNet-100 dataset.
+"""Download and prepare ImageNet-100 dataset from Hugging Face.
 
-Creates a 100-class subset of ImageNet in the standard ImageFolder format:
+Uses the pre-made clane9/imagenet-100 dataset (~14 GB) and converts it
+to ImageFolder directory structure for use with torchvision.
+
+Creates:
     <output_dir>/
     ├── train/
-    │   ├── class_0/
-    │   ├── class_1/
+    │   ├── n01558993/
+    │   ├── n01601694/
     │   └── ...
     └── val/
-        ├── class_0/
-        ├── class_1/
+        ├── n01558993/
+        ├── n01601694/
         └── ...
 
 Usage:
-    # From existing full ImageNet (fastest):
-    python src/data/download_imagenet100.py --imagenet-dir /path/to/full/imagenet --output-dir data/imagenet-100
+    source venv/bin/activate
+    export HF_TOKEN=your_token
+    python src/data/download_imagenet100.py --output-dir data/imagenet-100
 
-    # From scratch (requires image-net.org account):
-    python src/data/download_imagenet100.py --from-scratch --output-dir data/imagenet-100
-
-The 100 classes are selected deterministically from the 1000 ImageNet classes
-using a fixed seed, ensuring reproducibility across runs.
+Or with existing ImageNet:
+    python src/data/download_imagenet100.py --imagenet-dir /path/to/imagenet --output-dir data/imagenet-100
 """
 import argparse
 import os
-import shutil
-import random
-import subprocess
+import sys
 from pathlib import Path
+import torch.utils.data
 
 
-# Fixed list of 100 ImageNet class IDs (deterministic subset)
-# These are the first 100 classes from the standard ImageNet-100 benchmark split
+# Standard ImageNet-100 class IDs
 IMAGENET100_CLASSES = [
     'n01558993', 'n01601694', 'n01675722', 'n01749939', 'n01819313',
     'n01820546', 'n01917289', 'n01983481', 'n02085620', 'n02099601',
@@ -58,76 +57,92 @@ IMAGENET100_CLASSES = [
 ]
 
 
-def subset_from_full_imagenet(imagenet_dir: str, output_dir: str):
-    """Create ImageNet-100 from an existing full ImageNet installation.
+def download_subset_hf(output_dir: str, hf_token: str = None):
+    """Download ImageNet-100 from clane9/imagenet-100 on Hugging Face.
+    
+    Downloads ~14 GB and saves in ImageFolder format.
     
     Args:
-        imagenet_dir: Path to full ImageNet directory with train/ and val/ subdirs.
-        output_dir: Where to create the 100-class subset.
+        output_dir: Where to create ImageNet-100.
+        hf_token: Hugging Face token (or set HF_TOKEN env var).
     """
+    from datasets import load_dataset
+    from huggingface_hub import login
+    
+    token = hf_token or os.environ.get("HF_TOKEN")
+    if token:
+        login(token=token, add_to_git_credential=False)
+        print("Authenticated with Hugging Face")
+    
+    output_dir = Path(output_dir)
+    
+    # Load the dataset (downloads ~14 GB)
+    print("Loading clane9/imagenet-100 from Hugging Face...")
+    print("This will download ~14 GB of images.")
+    print()
+    
+    ds_train = load_dataset("clane9/imagenet-100", split="train")
+    ds_val = load_dataset("clane9/imagenet-100", split="validation")
+    
+    # Get class names from features
+    label_names = ds_train.features["label"].names
+    print(f"Classes in dataset: {len(label_names)}")
+    print(f"Train samples: {len(ds_train)}, Val samples: {len(ds_val)}")
+    print()
+    
+    # Save to ImageFolder format
+    for split_name, ds in [("train", ds_train), ("val", ds_val)]:
+        print(f"Saving {split_name} split...")
+        total = len(ds)
+        saved = 0
+        class_counts = {}
+        
+        for i in range(total):
+            item = ds[i]
+            label = item["label"]
+            wnid = label_names[label]
+            image = item["image"]
+            
+            class_dir = output_dir / split_name / wnid
+            class_dir.mkdir(parents=True, exist_ok=True)
+            
+            class_counts[wnid] = class_counts.get(wnid, 0) + 1
+            ext = "png" if hasattr(image, 'format') and image.format == 'PNG' else "JPEG"
+            img_path = class_dir / f"{wnid}_{class_counts[wnid]:04d}.{ext}"
+            image.save(img_path)
+            saved += 1
+            
+            if saved % 1000 == 0:
+                print(f"  {saved}/{total} images saved...")
+        
+        print(f"  {split_name}: {saved} images from {len(class_counts)} classes")
+        print()
+    
+    print(f"ImageNet-100 ready at: {output_dir}")
+    # Show disk usage
+    total_size = sum(f.stat().st_size for f in output_dir.rglob('*') if f.is_file())
+    print(f"Total size: {total_size / (1024**3):.1f} GB")
+
+
+def subset_from_full_imagenet(imagenet_dir: str, output_dir: str):
+    """Create ImageNet-100 from existing full ImageNet (symlinks, ~0 extra space)."""
     imagenet_dir = Path(imagenet_dir)
     output_dir = Path(output_dir)
     
     if not imagenet_dir.exists():
-        raise FileNotFoundError(f"ImageNet directory not found: {imagenet_dir}")
+        raise FileNotFoundError(f"ImageNet not found: {imagenet_dir}")
     
     for split in ['train', 'val']:
-        src_split = imagenet_dir / split
-        dst_split = output_dir / split
-        
-        if not src_split.exists():
-            raise FileNotFoundError(f"ImageNet {split} directory not found: {src_split}")
-        
-        dst_split.mkdir(parents=True, exist_ok=True)
-        
-        classes_found = 0
-        for class_id in IMAGENET100_CLASSES:
-            src_class = src_split / class_id
-            if src_class.exists():
-                dst_class = dst_split / class_id
-                if not dst_class.exists():
-                    print(f"  Linking {split}/{class_id}...")
-                    # Use symlinks to save disk space
-                    dst_class.symlink_to(src_class.resolve())
-                classes_found += 1
-            else:
-                print(f"  Warning: class {class_id} not found in {split}")
-        
-        print(f"  {split}: {classes_found}/100 classes linked")
+        src = imagenet_dir / split
+        dst = output_dir / split
+        if not src.exists():
+            raise FileNotFoundError(f"ImageNet {split} not found: {src}")
+        dst.mkdir(parents=True, exist_ok=True)
+        for cid in IMAGENET100_CLASSES:
+            if (src / cid).exists():
+                (dst / cid).symlink_to((src / cid).resolve())
     
-    print(f"\nImageNet-100 created at: {output_dir}")
-    print(f"  Classes: {len(IMAGENET100_CLASSES)}")
-    print(f"  Using symlinks (no extra disk space used)")
-
-
-def download_from_scratch(output_dir: str):
-    """Download ImageNet-100 from image-net.org.
-    
-    This requires a registered account on image-net.org.
-    Downloads only the 100 classes we need.
-    """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    print("ImageNet-100 download from scratch")
-    print("=" * 50)
-    print()
-    print("To download ImageNet, you need an account at https://image-net.org")
-    print()
-    print("Steps:")
-    print("1. Register at https://image-net.org")
-    print("2. Go to https://image-net.org/challenges/LSVRC/2012/2012-downloads.php")
-    print("3. Download the training images (ILSVRC2012_img_train.tar)")
-    print("4. Download the validation images (ILSVRC2012_img_val.tar)")
-    print("5. Extract and organize into train/ and val/ directories")
-    print("6. Run this script again with --imagenet-dir <path>")
-    print()
-    print("Alternatively, if you have the full tarball, run:")
-    print(f"  python {__file__} --imagenet-dir /path/to/extracted/imagenet --output-dir {output_dir}")
-    print()
-    print("For automated download of just 100 classes, consider using:")
-    print("  - Kaggle ImageNet (requires API key)")
-    print("  - Hugging Face datasets (imagenet-1k)")
+    print(f"ImageNet-100 created at: {output_dir} (symlinks)")
 
 
 def main():
@@ -136,23 +151,14 @@ def main():
                        help='Path to existing full ImageNet directory')
     parser.add_argument('--output-dir', type=str, default='data/imagenet-100',
                        help='Output directory for ImageNet-100')
-    parser.add_argument('--from-scratch', action='store_true',
-                       help='Show instructions for downloading from image-net.org')
+    parser.add_argument('--hf-token', type=str, default=None,
+                       help='Hugging Face token (or set HF_TOKEN env var)')
     args = parser.parse_args()
     
     if args.imagenet_dir:
-        print(f"Creating ImageNet-100 subset from: {args.imagenet_dir}")
-        print(f"Output: {args.output_dir}")
         subset_from_full_imagenet(args.imagenet_dir, args.output_dir)
-    elif args.from_scratch:
-        download_from_scratch(args.output_dir)
     else:
-        print("Usage:")
-        print(f"  # From existing full ImageNet:")
-        print(f"  python {__file__} --imagenet-dir /path/to/imagenet --output-dir data/imagenet-100")
-        print()
-        print(f"  # From scratch (download instructions):")
-        print(f"  python {__file__} --from-scratch")
+        download_subset_hf(args.output_dir, args.hf_token)
 
 
 if __name__ == '__main__':
