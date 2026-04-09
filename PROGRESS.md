@@ -25,8 +25,8 @@
 Phase 1: Setup & Implementation  [████████████████████] 100%
 Phase 2: First Training Runs     [████████████████████] 100%
 Phase 3: Monosemanticity Analysis[████████████████████] 100%
-Phase 4: SAE Analysis            [                    ]   0%
-Phase 5: Causal Patching         [                    ]   0%
+Phase 4: SAE Analysis            [████████████████████] 100%
+Phase 5: Causal Patching         [████████████████████] 100%
 Phase 6: Brain Alignment (NSD)   [                    ]   0%
 Phase 7: Write-up                [                    ]   0%
 ```
@@ -95,6 +95,47 @@ Phase 7: Write-up                [                    ]   0%
   5. ⚠️ TopoStrong (α=1.0) didn't outperform TopoWeak — suggests optimal α may be intermediate
 - **Status:** ✅ Complete (synthetic data), ⏳ Pending (ImageNet-100)
 
+#### EXP_002: SAE Analysis — Feature Superposition (H2)
+- **Date:** 2026-04-09
+- **Hypothesis:** H2 — Topographic models have sparser feature bases (lower L0 norm)
+- **Setup:**
+  - SAE: 4× expansion (128 → 512 features), L1 penalty=0.001, 50 epochs
+  - Extracted residual stream from middle layer (block 2 of 4), CLS token
+  - 500 train / 200 test activations per model
+- **Results:**
+  | Model | L0 Norm | Dead Features | Recon Loss |
+  |-------|---------|--------------|------------|
+  | Baseline | 314.7 | 0.0% | 0.0248 |
+  | TopoWeak | **289.3** | 0.0% | 0.0328 |
+  | TopoStrong | 291.5 | 0.0% | 0.0266 |
+- **Conclusion:**
+  1. ✅ TopoWeak has lowest L0 (289.3 vs 314.7 baseline) — ~8% fewer active features
+  2. ✅ Consistent with H1 pattern (TopoWeak > TopoStrong > Baseline for monosemanticity)
+  3. ⚠️ High L0 overall (289-315 out of 512 features) — SAE not very sparse on synthetic data
+  4. ⚠️ 0% dead features suggests no feature competition yet — real data needed
+- **Status:** ✅ Complete (synthetic data)
+
+#### EXP_003: Activation Patching — Causal Purity (H3)
+- **Date:** 2026-04-09
+- **Hypothesis:** H3 — Topographic clusters are more causally sufficient for classification
+- **Setup:**
+  - Identified top-16 units most selective for class 0 per model
+  - Patched activations at middle layer (block 2) with source image activations
+  - Measured |Δlogit| = |clean_logit - patched_logit| for target class
+  - Compared against random unit set of same size
+- **Results:**
+  | Model | Cluster |Δlogit| | Random |Δlogit| | Ratio |
+  |-------|----------|----------|-------|
+  | Baseline | 0.7766 | 0.6190 | 1.25× |
+  | TopoWeak | 0.4478 | 0.4455 | 1.01× |
+  | TopoStrong | 0.5127 | 0.3921 | **1.31×** |
+- **Conclusion:**
+  1. ✅ TopoStrong shows strongest causal isolation (1.31× over random)
+  2. ⚠️ TopoWeak underperforms (1.01×) — may need different class/layer selection
+  3. ⚠️ Synthetic data has no real semantic structure — causal effects are weak
+  4. ⚠️ Patching implementation works correctly; real data should show stronger effects
+- **Status:** ✅ Complete (synthetic data), ⏳ Pending (ImageNet-100)
+
 ---
 
 ## 📈 Results & Visualizations
@@ -123,6 +164,24 @@ Phase 7: Write-up                [                    ]   0%
 ![Monosemanticity Summary](results/figures/monosemanticity_summary.png)
 **Caption:** Bar chart comparing mean, median, max, and fraction > 0.5 across variants.
 **Key Insight:** TopoWeak leads on all metrics — strongest evidence for H1.
+
+### Figure 6: SAE Metrics Comparison
+![SAE Comparison](results/figures/sae_comparison.png)
+**Caption:** SAE metrics — L0 norm (active features), dead feature percentage, reconstruction loss.
+**Key Insight:**
+- Baseline has highest L0 (314.7) — most features active per image
+- TopoWeak has **lowest L0 (289.3)** — sparser feature basis, consistent with H2
+- TopoStrong L0 (291.5) — intermediate, same pattern as monosemanticity
+- 0% dead features across all models (no wasted capacity)
+
+### Figure 7: Activation Patching |Δlogit| Comparison
+![Patching Comparison](results/figures/patching_comparison.png)
+**Caption:** Mean |Δlogit| when patching selective cluster vs. random units.
+**Key Insight:**
+- Baseline: Cluster 1.25× more causal than random
+- TopoWeak: Cluster ≈ Random (1.01×) — weaker on synthetic data
+- TopoStrong: Cluster **1.31×** more causal — strongest H3 signal
+- Synthetic data limits causal analysis; real data expected stronger
 
 ---
 
@@ -161,9 +220,9 @@ Phase 7: Write-up                [                    ]   0%
 - ✅ **2026-04-09:** Virtual environment created, all dependencies installed
 - ✅ **2026-04-09:** 3 model variants trained (50 epochs each) — baseline, topo_weak, topo_strong
 - ✅ **2026-04-09:** Monosemanticity analysis complete — TopoWeak shows +11% improvement
+- ✅ **2026-04-09:** SAE analysis (H2) complete — TopoWeak lowest L0 (289.3 vs 314.7 baseline)
+- ✅ **2026-04-09:** Activation patching (H3) complete — TopoStrong 1.31× causal ratio
 - ⏳ **Next:** Run on real ImageNet-100 data for publication-quality results
-- ⏳ **Next:** SAE analysis (H2) when compute available
-- ⏳ **Next:** Activation patching (H3)
 - ⏳ **Next:** Brain alignment with NSD (H4)
 
 ---
@@ -177,6 +236,8 @@ Phase 7: Write-up                [                    ]   0%
 | 2026-04-09 | Tracking System | Updated PROGRESS.md with full research plan summary |
 | 2026-04-09 | **Implementation Complete** | Full pipeline: TinyViT, TopoLoss, analysis, visualization, training |
 | 2026-04-09 | **First Results** | 3 models trained, monosemanticity analysis, TopoWeak +11% improvement |
+| 2026-04-09 | **SAE Analysis (H2)** | TopoWeak lowest L0 (289.3 vs 314.7 baseline), consistent sparser features |
+| 2026-04-09 | **Causal Patching (H3)** | TopoStrong 1.31× causal ratio, all 3 hypotheses tested on synthetic data |
 
 ---
 
