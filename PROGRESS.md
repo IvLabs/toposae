@@ -5,7 +5,7 @@
 ## Project Metadata
 - **Start Date:** 2026-04-09
 - **Research Focus:** Monosemanticity in neural networks using topological data analysis
-- **Status:** 🟢 Implementation Complete — First Training Runs Done
+- **Status:** 🟡 ImageNet-100 Training In Progress (3 of 50 epochs on baseline)
 - **Research Plan:** [Full Plan](topo_monosemanticity_research_plan.md) | [Summary](RESEARCH_PLAN.md)
 
 ---
@@ -136,6 +136,25 @@ Phase 7: Write-up                [                    ]   0%
   4. ⚠️ Patching implementation works correctly; real data should show stronger effects
 - **Status:** ✅ Complete (synthetic data), ⏳ Pending (ImageNet-100)
 
+#### EXP_004: ImageNet-100 Training — Baseline (α=0.0)
+- **Date:** 2026-04-09
+- **Hypothesis:** H1 — Topographic training improves monosemanticity on real ImageNet-100
+- **Setup:**
+  - Model: TinyViT (4 layers, 128 dim, 4 heads, patch_size=16, 128×128 images)
+  - Dataset: ImageNet-100 (clane9/imagenet-100 from Hugging Face)
+    - 126,689 training images, 5,000 validation images, 100 classes
+  - Training: 50 epochs, AdamW (lr=1e-3), batch_size=8, accumulation_steps=4
+  - Hardware: RTX 3050 Laptop (4GB VRAM)
+- **Progress (interrupted at epoch 4, 62%):**
+  | Epoch | Train Loss | Val Acc | Time |
+  |-------|-----------|---------|------|
+  | 1 | 4.1983 | 12.0% | 10:03 |
+  | 2 | 3.8835 | 16.9% | 10:32 |
+  | 3 | 3.7073 | 20.0% | 10:27 |
+  | 4 | — | — | 62% done |
+- **Status:** ⏸️ Paused (killed to check status). Best val_acc = 20.0% at epoch 3.
+- **Next:** Resume baseline → topo_weak (α=0.1) → topo_strong (α=1.0) → full H1/H2/H3 analysis on real data
+
 ---
 
 ## 📈 Results & Visualizations
@@ -222,7 +241,10 @@ Phase 7: Write-up                [                    ]   0%
 - ✅ **2026-04-09:** Monosemanticity analysis complete — TopoWeak shows +11% improvement
 - ✅ **2026-04-09:** SAE analysis (H2) complete — TopoWeak lowest L0 (289.3 vs 314.7 baseline)
 - ✅ **2026-04-09:** Activation patching (H3) complete — TopoStrong 1.31× causal ratio
-- ⏳ **Next:** Run on real ImageNet-100 data for publication-quality results
+- ✅ **2026-04-09:** ImageNet-100 dataset downloaded (126K train, 5K val, 8.1 GB) from Hugging Face
+- ⏳ **2026-04-10:** ImageNet-100 baseline training started — 3/50 epochs done (val_acc 20.0%)
+- ⏳ **Next:** Complete baseline + topo_weak + topo_strong training on ImageNet-100
+- ⏳ **Next:** Full H1/H2/H3 analysis on real ImageNet-100 data
 - ⏳ **Next:** Brain alignment with NSD (H4)
 
 ---
@@ -238,6 +260,8 @@ Phase 7: Write-up                [                    ]   0%
 | 2026-04-09 | **First Results** | 3 models trained, monosemanticity analysis, TopoWeak +11% improvement |
 | 2026-04-09 | **SAE Analysis (H2)** | TopoWeak lowest L0 (289.3 vs 314.7 baseline), consistent sparser features |
 | 2026-04-09 | **Causal Patching (H3)** | TopoStrong 1.31× causal ratio, all 3 hypotheses tested on synthetic data |
+| 2026-04-10 | **ImageNet-100 Downloaded** | 126K train / 5K val, 8.1 GB from clane9/imagenet-100 on Hugging Face |
+| 2026-04-10 | **ImageNet-100 Training Started** | Baseline: 3/50 epochs, val_acc 20.0%, paused for status check |
 
 ---
 
