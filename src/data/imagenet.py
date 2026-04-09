@@ -39,10 +39,11 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.image_size = image_size
         self.data = torch.randn(num_samples, 3, image_size, image_size)
         self.targets = torch.randint(0, num_classes, (num_samples,))
-    
+        self.classes = list(range(num_classes))
+
     def __len__(self):
         return self.num_samples
-    
+
     def __getitem__(self, idx):
         return self.data[idx], self.targets[idx]
 

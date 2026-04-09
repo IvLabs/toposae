@@ -1,0 +1,42 @@
+experiment:
+  name: exp_001_ultra_minimal
+  seed: 42
+  alpha: 0.0
+  run_id: test_quick
+data:
+  dataset: imagenet-100
+  num_classes: 100
+  image_size: 128
+  data_dir: ./data/imagenet
+  batch_size: 8
+  accumulation_steps: 4
+  num_workers: 2
+model:
+  type: tiny_vit
+  depth: 4
+  hidden_dim: 128
+  num_heads: 4
+  patch_size: 16
+  dropout: 0.1
+training:
+  epochs: 2
+  optimizer: adamw
+  lr: 0.001
+  weight_decay: 0.05
+  warmup_epochs: 5
+  lr_min: 1.0e-05
+  mixed_precision: true
+  grad_clip: 1.0
+  checkpoint_every: 10
+  save_best: true
+topo_loss:
+  sigma: 2.0
+  layers: all
+analysis:
+  probe_images_per_class: 100
+  monosemanticity_threshold: 0.5
+output:
+  results_dir: results
+  checkpoints_dir: results/data/checkpoints
+  figures_dir: results/figures
+  summaries_dir: results/summaries
