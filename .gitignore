@@ -40,9 +40,7 @@ ENV/
 results/data/*.h5
 results/data/*.pkl
 results/data/*.npy
-*.pt
-*.pth
-*.ckpt
+results/data/activations/*.pt
 
 # OS
 .DS_Store
@@ -54,8 +52,8 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
-*.pt
-*.pt
+
+# Large data (re-downloadable)
 data/
 .cache/
 venv/
