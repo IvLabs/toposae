@@ -26,9 +26,14 @@ def identify_selective_cluster(
         List of unit indices most selective for class_idx.
     """
     from src.analysis.monosemanticity import compute_class_selectivity
+    # Handle both DatasetFolder (has classes attr) and Subset
+    ds = probe_loader.dataset
+    if hasattr(ds, 'dataset'):
+        ds = ds.dataset  # unwrap Subset
+    n_classes = len(ds.classes) if hasattr(ds, 'classes') else NUM_CLASSES if 'NUM_CLASSES' in dir() else 100
     selectivity = compute_class_selectivity(
         model, probe_loader,
-        num_classes=probe_loader.dataset.num_classes,
+        num_classes=n_classes,
         device=device
     )
     class_scores = selectivity[:, class_idx]

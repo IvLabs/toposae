@@ -184,38 +184,36 @@ def evaluate_sae(
 
 
 def collect_residual_stream(model, dataloader, layer_idx: int, device='cpu'):
-    """Collect residual stream activations from a specific transformer layer.
+    """Collect CLS token activations from a specific transformer layer.
     
-    For TinyViT, the residual stream at layer l is the output of blocks[l].
-    We hook into the output of the transformer block (before the next layer norm).
-    
+    Extracts only the CLS token on-the-fly to keep memory low (~65 MB for 126K
+    images) instead of buffering the full sequence (~4.2 GB).
+
     Args:
         model: TinyViT model.
         dataloader: DataLoader with images.
-        layer_idx: Which block to extract from (e.g., middle layer).
+        layer_idx: Which block to extract from.
         device: Device to run on.
-    
+
     Returns:
-        Tensor of shape (num_samples, num_patches+1, hidden_dim).
-        The CLS token is at index 0 in the sequence dimension.
+        Tensor of shape (num_samples, hidden_dim) — CLS token activations.
     """
-    activations = []
+    cls_activations = []
     hooks = []
-    
+
     def hook_fn(module, input, output):
-        # output shape: (B, N, D) — full sequence including CLS
-        activations.append(output.detach().cpu())
-    
-    # Hook into the specified transformer block
+        # output shape: (B, N, D) — extract CLS token only
+        cls_activations.append(output[:, 0, :].detach().cpu())
+
     hook = model.blocks[layer_idx].register_forward_hook(hook_fn)
     hooks.append(hook)
-    
+
     model.eval()
     with torch.no_grad():
         for images, _ in dataloader:
             _ = model(images.to(device))
-    
+
     for hook in hooks:
         hook.remove()
-    
-    return torch.cat(activations, dim=0)
+
+    return torch.cat(cls_activations, dim=0)  # (num_samples, hidden_dim)
