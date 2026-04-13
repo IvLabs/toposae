@@ -22,15 +22,27 @@
 
 **Why:** Everything is seed=42. Reviewers will immediately ask "is this robust?" The H2 L0 reduction of 5% and H3 ratio of 1.17× need statistical significance.
 
-**What:**
-- Train 5 seeds: {42, 123, 456, 789, 1024} × 3 variants (baseline, topo_weak, topo_strong)
-- 15 training runs total
-- Already done: seed=42 (3 runs)
-- Remaining: 12 runs
+**Seeds:** {42 ✓ done, 123, 456} — 3 seeds total
 
-**Per-run analysis:** H2 (SAE) + H3 (patching) on each checkpoint. H1 is null so deprioritize.
+### ViT-S/16 (12L / 384D / ImageNet-100 / 90 epochs)
 
-**Compute:** ~6-8h per ViT-S/16 training run on A100 = ~72-96h total. Analysis on local RTX 3050.
+**Already done:** seed=42 (3 runs: baseline, topo_weak, topo_strong)
+**Remaining:** 6 runs (seeds 123, 456 × 3 variants)
+
+**Compute:** ~6-8h per run on A100 = ~36-48h total
+
+### TinyViT (H1 exploration only)
+
+**Already done:** seed=42 (3 runs)
+**Remaining:** 6 runs (seeds 123, 456 × 3 variants) — local RTX 3050, ~2-3h each = ~12-18h
+
+**Purpose:** Only for H1 (monosemanticity) exploration — entropy-based vs SAE-based comparison. Not included in main paper results. Quick local sanity check.
+
+### Per-run analysis (ViT-S/16):
+
+- H2 (SAE) on all 6 new models — 6 SAE runs
+- H3 (patching) on all 6 new models — 12 patching runs (cluster + random each)
+- H1 deprioritized (null result in seed=42)
 
 **Success criteria:**
 - H2: L0 reduction ≥5% with paired t-test p < 0.05 (topo_strong vs baseline)
@@ -43,7 +55,7 @@
 |---|---|---|---|---|
 | 42 | L0 | 1061.5 | 1034.6 | 1010.8 |
 | 123 | L0 | ... | ... | ... |
-| ... | ... | ... | ... | ... |
+| 456 | L0 | ... | ... | ... |
 | **Mean ± SE** | **L0** | **X ± Y** | **X ± Y** | **X ± Y** |
 | **Cohen's d** | **vs Baseline** | — | **d = ?** | **d = ?** |
 
@@ -56,13 +68,13 @@
 **Why:** Currently measuring only layer 6 (middle). Reviewer will ask: "Is the effect concentrated in one layer, or distributed?" Layer-wise analysis shows the *structure* of the effect (Level 2 depth).
 
 **What:**
-- For seed=42 ViT-S/16 models (already trained), extract CLS activations from **all 12 blocks**
+- For all 3 seeds of ViT-S/16 models (9 models total), extract CLS activations from **all 12 blocks**
 - Train SAE on each layer (same config: 4× expansion, L1=0.001, 50 epochs)
-- Measure L0 norm, dead features, recon loss per layer
+- Measure L0 norm, dead features, recon loss per layer, per seed, per variant
 
-**Compute:** No training needed. 12 layers × 3 models = 36 SAE runs. Each ~1h on RTX 3050.
+**Compute:** 9 models × 12 layers × 3 variants = 324 SAE runs (many can be parallelized). Each ~1h on RTX 3050.
 
-**Output figure:** Line plot — L0 norm (y) vs layer depth (x), 3 lines (baseline, topo_weak, topo_strong). Expected: topo lines diverge from baseline progressively through layers.
+**Output figure:** Line plot — L0 norm (y) vs layer depth (x), 3 lines (baseline, topo_weak, topo_strong) with error bars across seeds. Expected: topo lines diverge from baseline progressively through layers.
 
 ---
 
@@ -73,7 +85,7 @@
 **Why:** Killer alternative explanation: "TopoStrong is just a weaker model, of course it has lower L0." We need to explicitly test whether L0 reduction is an accuracy confound.
 
 **What:**
-- Collect (accuracy, L0) pairs across all seeds and all variants (15 data points from EXP_005)
+- Collect (accuracy, L0) pairs across all seeds and all variants (9 data points from EXP_005: 3 seeds × 3 variants)
 - Fit linear regression: L0 ~ accuracy
 - Test: Does TopoStrong sit *below* the regression line? If yes → topo drives sparsity beyond accuracy alone.
 - If TopoStrong sits *on* the line → reviewer is right, it's just accuracy.
@@ -91,10 +103,10 @@
 **Why:** Distinguishes our H2 from TopoNets' "lower dimensionality" claim. If PCA dimensionality reduction correlates with SAE L0, reviewer says "you just rediscovered dimensionality." If they diverge, we show SAE captures something different.
 
 **What:**
-- On seed=42 ViT-S/16 activations (layer 6, already collected):
+- On all 3 seeds of ViT-S/16 activations (layer 6, collected during EXP_005):
   - Run PCA, find # components for 95% variance explained
   - Compare to SAE L0 norm (active features per image)
-- If PCA finds similar "effective dimensionality" for all 3 models but SAE finds different L0 → SAE captures something PCA misses
+  - If PCA finds similar "effective dimensionality" for all 3 variants but SAE finds different L0 → SAE captures something PCA misses
 
 **Compute:** No training. PCA is fast (~minutes).
 
@@ -109,10 +121,10 @@
 **Why:** Current H1 (entropy-based score) is null. The entropy metric is too blunt. Anthropic's actual approach: count SAE features that are single-concept-selective. This is the *right* way to measure monosemanticity.
 
 **What:**
-- Use trained SAEs from EXP_005
+- Use trained SAEs from EXP_005 (3 seeds × 3 variants = 9 SAEs)
 - For each SAE feature, compute its activation distribution across ImageNet-100 classes
 - Count features that respond to only 1 class (monosemantic features)
-- Compare: baseline vs topo_weak vs topo_strong
+- Compare: baseline vs topo_weak vs topo_strong, aggregated across seeds
 
 **Compute:** No new training. Just analysis on existing SAEs + activations.
 
@@ -145,7 +157,7 @@
 **Why:** Shows *how* topo reduces superposition. If topo features are less correlated with each other, it means they're more independent — directly supporting the "reduced interference" claim.
 
 **What:**
-- For each trained SAE, compute pairwise feature correlation matrix
+- For each trained SAE (3 seeds × 3 variants = 9 SAEs), compute pairwise feature correlation matrix
 - Measure: mean absolute correlation, fraction of highly correlated pairs (|r| > 0.5)
 - Compare: baseline vs topo models
 
@@ -162,10 +174,10 @@
 **Why:** Tests if the effect scales further. If ViT-S/16 shows -5% L0, does ViT-B/16 show -8% or does it saturate?
 
 **What:**
-- Train ViT-B/16 (timm `vit_b_16`), 3 variants, seed=42, 90 epochs
-- Run H2 analysis
+- Train ViT-B/16 (timm `vit_b_16`), 3 variants, 3 seeds (42, 123, 456), 90 epochs
+- Run H2 analysis on all 9 models
 
-**Compute:** 3 runs, ~8-10h each on A100 = ~24-30h. Needs 24+ GB VRAM.
+**Compute:** 9 runs (6 new + seed=42), ~8-10h each on A100 = ~72-90h. Needs 24+ GB VRAM.
 
 **Note:** Only worth doing if ViT-S/16 multi-seed results are strong. Otherwise it's a weak result at larger scale.
 
@@ -177,9 +189,9 @@
 
 **Why:** Full robustness at largest scale. Only for main conference submission.
 
-**What:** Same as EXP_005 but for ViT-B/16.
+**What:** Same as EXP_005 but for ViT-B/16 (3 seeds × 3 variants = 9 runs).
 
-**Compute:** 12 runs × ~10h = 120h on A100. Expensive.
+**Compute:** 9 runs × ~10h = 90h on A100. Expensive.
 
 ---
 
@@ -189,17 +201,17 @@ For a **4-page workshop paper**, here's the minimum viable path:
 
 | Step | Experiment | Duration | Depends On |
 |---|---|---|---|
-| 1 | **EXP_005** (Multi-seed ViT-S/16) | ~4 days GPU | None |
-| 2 | **EXP_009** (Layer-wise SAE) | ~1 day local | EXP_006 (done) |
+| 1 | **EXP_005** (Multi-seed ViT-S/16: seeds 123, 456) | ~2 days GPU | None |
+| 2 | **EXP_009** (Layer-wise SAE, all 3 seeds) | ~1 day local | EXP_005 |
 | 3 | **EXP_010** (Accuracy vs L0) | ~2 hours | EXP_005 |
-| 4 | **EXP_011** (PCA baseline) | ~2 hours | EXP_006 (done) |
+| 4 | **EXP_011** (PCA baseline) | ~2 hours | EXP_005 |
 | 5 | **EXP_012** (SAE-based H1) | ~1 day local | EXP_005 |
-| — | **Write paper** | ~3 days | Steps 1-4 |
+| — | **Write paper** | ~3 days | Steps 1-5 |
 | 6 | EXP_013 (α sweep) | ~1 day GPU | Optional |
 | 7 | EXP_014 (Feature correlation) | ~4 hours | EXP_005 |
 | 8 | EXP_007 (ViT-B/16) | ~2 days GPU | Optional |
 
-**Total for workshop paper:** ~8-10 days (mostly GPU wait time for EXP_005)
+**Total for workshop paper:** ~7-9 days (mostly GPU wait time for EXP_005)
 
 ---
 
@@ -228,12 +240,12 @@ For a **4-page workshop paper**, here's the minimum viable path:
 
 | Phase | GPU Hours | Where |
 |---|---|---|
-| EXP_005 (12 ViT-S/16 runs) | ~96h | A100 / Colab Pro |
+| EXP_005 (6 ViT-S/16 runs) | ~48h | A100 / Colab Pro |
 | EXP_013 (2 α sweep runs) | ~16h | A100 / Colab Pro |
-| EXP_007 (3 ViT-B/16 runs) | ~30h | A100 24GB+ |
+| EXP_007 (9 ViT-B/16 runs) | ~90h | A100 24GB+ |
 | Analysis (SAE × layers, PCA, etc.) | ~24h | RTX 3050 (local) |
-| **Workshop minimum** | **~120h GPU** | |
-| **Full plan (all experiments)** | **~166h GPU** | |
+| **Workshop minimum** | **~48h GPU + ~24h local** | |
+| **Full plan (all experiments)** | **~154h GPU + ~48h local** | |
 
 ---
 
