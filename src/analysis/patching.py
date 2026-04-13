@@ -11,29 +11,25 @@ from typing import Dict, List
 
 def identify_selective_cluster(
     model, probe_loader, class_idx: int,
-    num_units: int = None, device: str = 'cpu'
+    num_units: int = None, device: str = 'cpu', num_classes: int = 100
 ) -> List[int]:
     """Identify the set of units most selective for a given class.
-    
+
     Args:
-        model: Trained model (TinyViT).
+        model: Trained model (TinyViT or timm ViT).
         probe_loader: DataLoader with labeled probe images.
         class_idx: Target class to find selective units for.
         num_units: Number of top selective units to return.
         device: Device to run on.
-    
+        num_classes: Number of classes in the dataset.
+
     Returns:
         List of unit indices most selective for class_idx.
     """
     from src.analysis.monosemanticity import compute_class_selectivity
-    # Handle both DatasetFolder (has classes attr) and Subset
-    ds = probe_loader.dataset
-    if hasattr(ds, 'dataset'):
-        ds = ds.dataset  # unwrap Subset
-    n_classes = len(ds.classes) if hasattr(ds, 'classes') else NUM_CLASSES if 'NUM_CLASSES' in dir() else 100
     selectivity = compute_class_selectivity(
         model, probe_loader,
-        num_classes=n_classes,
+        num_classes=num_classes,
         device=device
     )
     class_scores = selectivity[:, class_idx]
@@ -78,38 +74,40 @@ def _collect_source_activation(model, source_loader, layer_idx, device):
 
 
 def _patched_forward(model, images, patch_units, source_avg, layer_idx, device):
-    """Forward pass with selected unit activations replaced by source values."""
+    """Forward pass with selected unit activations replaced by source values.
+
+    Vectorized replacement for efficiency.
+    """
     patched = [None]
-    
+    patch_units_tensor = torch.tensor(patch_units, device=device)
+    source_avg_device = source_avg.to(device)
+
     def patch_hook(module, input, output):
         out = output.clone()
         if out.dim() == 3:
-            for u in patch_units:
-                if u < out.shape[2]:
-                    out[:, :, u] = source_avg[u].to(device)
+            # Vectorized: out[:, :, patch_units] = source_avg[patch_units]
+            out[:, :, patch_units_tensor] = source_avg_device[patch_units_tensor]
         else:
-            for u in patch_units:
-                if u < out.shape[1]:
-                    out[:, u] = source_avg[u].to(device)
+            out[:, patch_units_tensor] = source_avg_device[patch_units_tensor]
         patched[0] = out
         return out
-    
+
     hook = (model.blocks[layer_idx].register_forward_hook(patch_hook)
             if layer_idx is not None
             else model.norm.register_forward_hook(patch_hook))
-    
+
     with torch.no_grad():
         _ = model(images.to(device))
-    
+
     hook.remove()
-    
+
     # Extract CLS and run through remaining layers
     if patched[0].dim() == 3:
         cls = patched[0][:, 0, :]
         cls = model.norm(cls)
     else:
         cls = patched[0]
-    
+
     return model.head(cls).cpu()
 
 

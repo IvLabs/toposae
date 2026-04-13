@@ -13,61 +13,85 @@ def compute_class_selectivity(
     model: nn.Module,
     loader: DataLoader,
     num_classes: int,
-    device: str = 'cpu'
+    device: str = 'cpu',
+    norm_layer_name: str = 'norm',
 ) -> torch.Tensor:
     """Compute class selectivity scores for all hidden units.
 
-    For each unit (neuron) in the model's hidden layers, computes the average
-    activation per class. Returns a tensor of shape (num_units, num_classes).
+    Accumulates running sums per class incrementally — does NOT buffer
+    all activations in memory.
 
     Args:
         model: The model to analyze.
         loader: DataLoader with input samples.
         num_classes: Number of classes in the dataset.
         device: Device to run computation on.
+        norm_layer_name: Attribute name of the final norm layer.
 
     Returns:
         Tensor of shape (num_units, num_classes) with average activations.
     """
+    import gc
+
     model.eval()
     model.to(device)
 
-    # Collect activations from the last layer norm (before head)
-    activations_list = []
-    labels_list = []
+    # Find the norm layer
+    target_layer = getattr(model, norm_layer_name, None)
+    if target_layer is None:
+        # Fallback: search all modules for LayerNorm
+        for name, mod in model.named_modules():
+            if isinstance(mod, nn.LayerNorm) and 'norm' in name:
+                target_layer = mod
+                break
+    if target_layer is None:
+        raise RuntimeError("Could not find norm layer in model")
 
-    hook_handle = None
-    hidden_activations = []
+    # Determine hidden dim from first batch
+    hidden_dim = None
+    num_units = None
+
+    # Accumulators: sum of activations per class, count per class
+    # Shape: (num_units, num_classes) — but we don't know num_units yet
+    accum = None  # will be initialized on first batch
+    counts = torch.zeros(num_classes, dtype=torch.long)
+
+    hidden_acts = []
 
     def hook_fn(module, input, output):
-        hidden_activations.append(output)
+        # Extract CLS token (position 0) — only thing we need
+        cls = output[:, 0, :]  # (B, hidden_dim)
+        hidden_acts.append(cls)
 
-    # Register hook on the norm layer to get hidden representations
-    hook_handle = model.norm.register_forward_hook(hook_fn)
+    hook = target_layer.register_forward_hook(hook_fn)
 
     for images, labels in loader:
         images = images.to(device)
         _ = model(images)
-        activations_list.append(hidden_activations[-1].cpu())
-        labels_list.append(labels)
 
-    hook_handle.remove()
+        cls = hidden_acts[-1].cpu()  # (B, D)
+        if hidden_dim is None:
+            hidden_dim = cls.shape[1]
+            num_units = hidden_dim
+            accum = torch.zeros(num_units, num_classes, dtype=torch.float64)
 
-    # Concatenate all activations and labels
-    all_activations = torch.cat(activations_list, dim=0)  # (N, seq_len, hidden_dim)
-    all_labels = torch.cat(labels_list, dim=0)  # (N,)
+        # Accumulate per-class sums
+        for c in range(num_classes):
+            mask = labels == c
+            if mask.any():
+                accum[:, c] += cls[mask].sum(dim=0)
+                counts[c] += mask.sum().item()
 
-    # Use CLS token activations (first position)
-    cls_activations = all_activations[:, 0, :]  # (N, hidden_dim)
+        hidden_acts.clear()
+        gc.collect()
 
-    # Compute mean activation per class
-    num_units = cls_activations.shape[1]
+    hook.remove()
+
+    # Compute means
     selectivity = torch.zeros(num_units, num_classes)
-
     for c in range(num_classes):
-        mask = all_labels == c
-        if mask.sum() > 0:
-            selectivity[:, c] = cls_activations[mask].mean(dim=0)
+        if counts[c] > 0:
+            selectivity[:, c] = accum[:, c] / counts[c].item()
 
     return selectivity
 

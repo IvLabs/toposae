@@ -1,29 +1,26 @@
 experiment:
-  name: exp_001_ultra_minimal
+  name: vit_s16_imagenet100
   seed: 42
-  alpha: 0.1
+  alpha: 1.0
   run_id: topo_weak
 data:
   dataset: imagenet-100
   num_classes: 100
-  image_size: 128
-  data_dir: ./data/imagenet
-  batch_size: 8
-  accumulation_steps: 4
-  num_workers: 2
+  image_size: 224
+  data_dir: ./data/imagenet-100
+  batch_size: 128
+  accumulation_steps: 1
+  num_workers: 8
 model:
-  type: tiny_vit
-  depth: 4
-  hidden_dim: 128
-  num_heads: 4
-  patch_size: 16
-  dropout: 0.1
+  type: vit_small_patch16_224
+  pretrained: false
+  drop_path_rate: 0.1
 training:
-  epochs: 50
+  epochs: 90
   optimizer: adamw
-  lr: 0.001
+  lr: 0.0005
   weight_decay: 0.05
-  warmup_epochs: 5
+  warmup_epochs: 10
   lr_min: 1.0e-05
   mixed_precision: true
   grad_clip: 1.0

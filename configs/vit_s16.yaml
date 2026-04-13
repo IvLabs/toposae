@@ -17,7 +17,7 @@ data:
   num_workers: 8
 
 model:
-  type: vit_s_16          # timm model
+  type: vit_small_patch16_224 # timm model
   pretrained: false
   drop_path_rate: 0.1
 
