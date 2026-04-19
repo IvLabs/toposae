@@ -1,5 +1,4 @@
-# ViT-B/16 on ImageNet-100
-# Designed for A100 40GB+ / A100 80GB
+# ViT-B/16 on ImageNet-100 — tuned for NVIDIA L4 (24 GB VRAM)
 
 experiment:
   name: vit_b16_imagenet100
@@ -11,13 +10,13 @@ data:
   dataset: imagenet-100
   num_classes: 100
   image_size: 224
-  data_dir: ./data/imagenet-100
+  data_dir: /home/toposae/toposae/data/imagenet-100
   batch_size: 128
   accumulation_steps: 1
   num_workers: 8
 
 model:
-  type: vit_b_16
+  type: vit_base_patch16_224
   pretrained: false
   drop_path_rate: 0.1
 
@@ -42,7 +41,7 @@ analysis:
   monosemanticity_threshold: 0.5
 
 output:
-  results_dir: results
-  checkpoints_dir: results/data/checkpoints
-  figures_dir: results/figures
-  summaries_dir: results/summaries
+  results_dir: /home/toposae/toposae/results
+  checkpoints_dir: /home/toposae/toposae/results/data/checkpoints
+  figures_dir: /home/toposae/toposae/results/figures
+  summaries_dir: /home/toposae/toposae/results/summaries

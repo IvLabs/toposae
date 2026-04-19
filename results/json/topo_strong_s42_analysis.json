@@ -1,0 +1,24 @@
+{
+  "run_id": "topo_strong_s42",
+  "model_type": "vit_small_patch16_224",
+  "alpha": 1.0,
+  "seed": 42,
+  "val_acc": 0.5974,
+  "epoch": 81,
+  "h1": {
+    "mono_mean": 0.23736323416233063,
+    "mono_median": 0.20962172746658325,
+    "mono_max": 0.8130941390991211,
+    "frac_gt_05": 0.0078125
+  },
+  "h2": {
+    "l0_norm": 1120.4586181640625,
+    "dead_pct": 3.97135429084301,
+    "recon_loss": 0.007836778648197651
+  },
+  "h3": {
+    "cluster_dlogit": 1.2533718347549438,
+    "random_dlogit": 0.3399580419063568,
+    "patch_ratio": 3.6868427283746725
+  }
+}

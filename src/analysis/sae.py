@@ -183,6 +183,33 @@ def evaluate_sae(
     }
 
 
+def collect_all_layers(model, dataloader, depth: int, device='cpu') -> dict:
+    """Collect CLS token activations from ALL transformer blocks in one forward pass.
+
+    Returns dict {layer_idx: Tensor(num_samples, hidden_dim)}.
+    """
+    from tqdm import tqdm
+    layer_acts = {i: [] for i in range(depth)}
+    hooks = []
+
+    for i in range(depth):
+        def make_hook(idx):
+            def hook_fn(module, input, output):
+                layer_acts[idx].append(output[:, 0, :].detach().cpu())
+            return hook_fn
+        hooks.append(model.blocks[i].register_forward_hook(make_hook(i)))
+
+    model.eval()
+    with torch.no_grad():
+        for images, _ in tqdm(dataloader, desc="Collecting layers", leave=False, ncols=80):
+            model(images.to(device))
+
+    for h in hooks:
+        h.remove()
+
+    return {i: torch.cat(layer_acts[i], dim=0) for i in range(depth)}
+
+
 def collect_residual_stream(model, dataloader, layer_idx: int, device='cpu'):
     """Collect CLS token activations from a specific transformer layer.
     

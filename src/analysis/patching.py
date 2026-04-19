@@ -2,8 +2,6 @@
 
 Tests whether topographic clusters causally control behavior by patching
 activations and measuring the effect on classification logits.
-
-Reference: Research plan Section 3.4
 """
 import torch
 from typing import Dict, List
@@ -11,26 +9,12 @@ from typing import Dict, List
 
 def identify_selective_cluster(
     model, probe_loader, class_idx: int,
-    num_units: int = None, device: str = 'cpu', num_classes: int = 100
+    num_units: int = None, device: str = "cpu", num_classes: int = 100,
 ) -> List[int]:
-    """Identify the set of units most selective for a given class.
-
-    Args:
-        model: Trained model (TinyViT or timm ViT).
-        probe_loader: DataLoader with labeled probe images.
-        class_idx: Target class to find selective units for.
-        num_units: Number of top selective units to return.
-        device: Device to run on.
-        num_classes: Number of classes in the dataset.
-
-    Returns:
-        List of unit indices most selective for class_idx.
-    """
+    """Find the top-K units most selective for class_idx."""
     from src.analysis.monosemanticity import compute_class_selectivity
     selectivity = compute_class_selectivity(
-        model, probe_loader,
-        num_classes=num_classes,
-        device=device
+        model, probe_loader, num_classes=num_classes, device=device
     )
     class_scores = selectivity[:, class_idx]
     if num_units is None:
@@ -39,118 +23,73 @@ def identify_selective_cluster(
     return top_units
 
 
-def _collect_source_activation(model, source_loader, layer_idx, device):
-    """Get average activations at the specified layer from source images."""
+def _collect_source_activation(model, source_loader, layer_idx: int, device: str):
+    """Average block output across all source images."""
     avg_acts = None
     count = 0
-    
+
     def hook_fn(module, input, output):
         nonlocal avg_acts, count
-        if output.dim() == 3:
-            acts = output.mean(dim=1).detach().cpu()  # (B, D)
-        else:
-            acts = output.detach().cpu()
+        # output: (B, N, D) for ViT; take CLS token mean across sequence for robustness
+        acts = output.detach().cpu()  # (B, N, D)
+        summed = acts.sum(dim=0)       # (N, D) — sum over batch
         if avg_acts is None:
-            avg_acts = acts.sum(dim=0)
+            avg_acts = summed
         else:
-            avg_acts += acts.sum(dim=0)
+            avg_acts += summed
         count += acts.shape[0]
-    
-    hooks = []
-    if layer_idx is not None:
-        h = model.blocks[layer_idx].register_forward_hook(hook_fn)
-    else:
-        h = model.norm.register_forward_hook(hook_fn)
-    hooks.append(h)
-    
+
+    hook = model.blocks[layer_idx].register_forward_hook(hook_fn)
     with torch.no_grad():
         for images, _ in source_loader:
-            _ = model(images.to(device))
-    
-    for h in hooks:
-        h.remove()
-    
-    return avg_acts / count  # (D,)
-
-
-def _patched_forward(model, images, patch_units, source_avg, layer_idx, device):
-    """Forward pass with selected unit activations replaced by source values.
-
-    Vectorized replacement for efficiency.
-    """
-    patched = [None]
-    patch_units_tensor = torch.tensor(patch_units, device=device)
-    source_avg_device = source_avg.to(device)
-
-    def patch_hook(module, input, output):
-        out = output.clone()
-        if out.dim() == 3:
-            # Vectorized: out[:, :, patch_units] = source_avg[patch_units]
-            out[:, :, patch_units_tensor] = source_avg_device[patch_units_tensor]
-        else:
-            out[:, patch_units_tensor] = source_avg_device[patch_units_tensor]
-        patched[0] = out
-        return out
-
-    hook = (model.blocks[layer_idx].register_forward_hook(patch_hook)
-            if layer_idx is not None
-            else model.norm.register_forward_hook(patch_hook))
-
-    with torch.no_grad():
-        _ = model(images.to(device))
-
+            model(images.to(device))
     hook.remove()
 
-    # Extract CLS and run through remaining layers
-    if patched[0].dim() == 3:
-        cls = patched[0][:, 0, :]
-        cls = model.norm(cls)
-    else:
-        cls = patched[0]
-
-    return model.head(cls).cpu()
+    return avg_acts / count  # (N, D)
 
 
 def run_patching_experiment(
     model, test_loader, patch_units: List[int],
-    source_loader, layer_idx: int = None, device: str = 'cpu'
+    source_loader, layer_idx: int = None, device: str = "cpu",
 ) -> Dict:
-    """Run activation patching experiment.
-    
-    For each test image, run model normally and with patched activations,
-    then measure delta_logit = clean_logit - patched_logit.
-    
-    Args:
-        model: Trained model.
-        test_loader: Test images to evaluate on.
-        patch_units: Unit indices to patch.
-        source_loader: Source images for replacement activations.
-        layer_idx: Which transformer block to patch (None = final norm output).
-        device: Device to run on.
-    
-    Returns:
-        Dict with delta_logits, clean_logits, patched_logits.
+    """Patch selected units in block `layer_idx` and measure delta logit.
+
+    Uses a hook to intercept block output, replaces `patch_units` dimensions
+    with source averages, and lets the rest of the forward pass proceed
+    normally. No manual model.norm / model.head calls needed.
     """
     model.eval()
+
     source_avg = _collect_source_activation(model, source_loader, layer_idx, device)
-    
-    clean_list = []
-    patched_list = []
-    
+    source_avg = source_avg.to(device)          # (N, D)
+    unit_idx = torch.tensor(patch_units, device=device)
+
+    clean_list, patched_list = [], []
+
     with torch.no_grad():
+        # ── Clean forward ──────────────────────────────────────────────────
         for images, _ in test_loader:
-            clean_out = model(images.to(device))
-            clean_list.append(clean_out.cpu())
-            patched_out = _patched_forward(
-                model, images, patch_units, source_avg, layer_idx, device
-            )
-            patched_list.append(patched_out)
-    
-    clean_logits = torch.cat(clean_list, dim=0)
+            out = model(images.to(device))
+            clean_list.append(out.cpu())
+
+        # ── Patched forward ────────────────────────────────────────────────
+        def patch_hook(module, input, output):
+            out = output.clone()  # (B, N, D)
+            # Replace selected feature dimensions with source averages
+            out[:, :, unit_idx] = source_avg[:, unit_idx].unsqueeze(0)
+            return out
+
+        hook = model.blocks[layer_idx].register_forward_hook(patch_hook)
+        for images, _ in test_loader:
+            out = model(images.to(device))
+            patched_list.append(out.cpu())
+        hook.remove()
+
+    clean_logits   = torch.cat(clean_list,   dim=0)
     patched_logits = torch.cat(patched_list, dim=0)
-    
+
     return {
-        'delta_logits': clean_logits - patched_logits,
-        'clean_logits': clean_logits,
-        'patched_logits': patched_logits,
+        "delta_logits":   clean_logits - patched_logits,
+        "clean_logits":   clean_logits,
+        "patched_logits": patched_logits,
     }

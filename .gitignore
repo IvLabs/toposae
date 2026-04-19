@@ -36,11 +36,12 @@ ENV/
 # Jupyter
 .ipynb_checkpoints
 
-# Results & Data
+# Results & Data — exclude large binaries, keep figures/json/markdown
+results/data/checkpoints/
+results/data/activations/
 results/data/*.h5
 results/data/*.pkl
 results/data/*.npy
-results/data/activations/*.pt
 
 # OS
 .DS_Store
