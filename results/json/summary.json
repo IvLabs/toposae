@@ -1,4 +1,28 @@
 {
+  "baseline_s42": {
+    "run_id": "baseline_s42",
+    "model_type": "vit_small_patch16_224",
+    "alpha": 0.0,
+    "seed": 42,
+    "val_acc": 0.6064,
+    "epoch": 87,
+    "h1": {
+      "mono_mean": 0.23282329738140106,
+      "mono_median": 0.20600074529647827,
+      "mono_max": 0.9999999403953552,
+      "frac_gt_05": 0.0026041667442768812
+    },
+    "h2": {
+      "l0_norm": 1265.1475830078125,
+      "dead_pct": 0.1953125,
+      "recon_loss": 0.0037647285498678684
+    },
+    "h3": {
+      "cluster_dlogit": 0.3293314576148987,
+      "random_dlogit": 0.27386289834976196,
+      "patch_ratio": 1.2025413431296395
+    }
+  },
   "topo_001_s42": {
     "run_id": "topo_001_s42",
     "model_type": "vit_small_patch16_224",
@@ -13,14 +37,62 @@
       "frac_gt_05": 0.0026041667442768812
     },
     "h2": {
-      "l0_norm": 1313.05322265625,
+      "l0_norm": 1313.4403076171875,
       "dead_pct": 0.2604166744276881,
-      "recon_loss": 0.0050967601127922535
+      "recon_loss": 0.010958387516438961
     },
     "h3": {
-      "cluster_dlogit": 0.3964761197566986,
-      "random_dlogit": 0.3357933759689331,
-      "patch_ratio": 1.1807145349805226
+      "cluster_dlogit": 0.39279019832611084,
+      "random_dlogit": 0.3357295095920563,
+      "patch_ratio": 1.1699603016827111
+    }
+  },
+  "topo_weak_s42": {
+    "run_id": "topo_weak_s42",
+    "model_type": "vit_small_patch16_224",
+    "alpha": 0.1,
+    "seed": 42,
+    "val_acc": 0.6138,
+    "epoch": 67,
+    "h1": {
+      "mono_mean": 0.2383483648300171,
+      "mono_median": 0.20740395784378052,
+      "mono_max": 0.735221266746521,
+      "frac_gt_05": 0.0052083334885537624
+    },
+    "h2": {
+      "l0_norm": 1282.62353515625,
+      "dead_pct": 0.390625,
+      "recon_loss": 0.006231748964637518
+    },
+    "h3": {
+      "cluster_dlogit": 0.46377432346343994,
+      "random_dlogit": 0.330721914768219,
+      "patch_ratio": 1.4023090177996476
+    }
+  },
+  "topo_strong_s42": {
+    "run_id": "topo_strong_s42",
+    "model_type": "vit_small_patch16_224",
+    "alpha": 1.0,
+    "seed": 42,
+    "val_acc": 0.5974,
+    "epoch": 81,
+    "h1": {
+      "mono_mean": 0.23736323416233063,
+      "mono_median": 0.20962172746658325,
+      "mono_max": 0.8130941390991211,
+      "frac_gt_05": 0.0078125
+    },
+    "h2": {
+      "l0_norm": 1130.36279296875,
+      "dead_pct": 3.3203125,
+      "recon_loss": 0.006738695781677961
+    },
+    "h3": {
+      "cluster_dlogit": 1.2823072671890259,
+      "random_dlogit": 0.339923620223999,
+      "patch_ratio": 3.7723394047875387
     }
   }
 }
