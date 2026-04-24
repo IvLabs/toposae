@@ -1,6 +1,6 @@
 # Experiment Results — Topo Monosemanticity Research
 
-> Auto-generated 2026-04-19 23:07:07
+> Auto-generated 2026-04-24 01:12:55
 
 ## Setup
 - **Dataset:** ImageNet-100 (clane9/imagenet-100, HF)
@@ -15,25 +15,25 @@
 
 | Run | α | Seed | Epoch | Val Acc |
 |-----|---|------|-------|---------|
-| baseline_s123 | 0.0 | 123 | 83 | 0.6194 |
+| topo_001_s42 | 0.01 | 42 | 88 | 0.6150 |
 
 ### H1: Monosemanticity
 
 | Run | Mean | Median | Max | Frac > 0.5 |
 |-----|------|--------|-----|------------|
-| baseline_s123 | 0.2324 | 0.2106 | 0.5794 | 0.0052 |
+| topo_001_s42 | 0.2317 | 0.2096 | 1.0000 | 0.0026 |
 
 ### H2: SAE
 
 | Run | L0 Norm | Dead % | Recon Loss |
 |-----|---------|--------|------------|
-| baseline_s123 | 1256.2 | 0.3 | 0.012608 |
+| topo_001_s42 | 1313.1 | 0.3 | 0.005097 |
 
 ### H3: Causal Patching
 
 | Run | Cluster |Δlogit| | Random |Δlogit| | Ratio |
 |-----|----------|----------|-------|
-| baseline_s123 | 0.3259 | 0.2839 | 1.15× |
+| topo_001_s42 | 0.3965 | 0.3358 | 1.18× |
 
 ---
-*Generated 2026-04-19 23:07:07*
+*Generated 2026-04-24 01:12:55*
