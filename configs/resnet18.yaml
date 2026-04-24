@@ -1,0 +1,56 @@
+# ResNet-18 + TopoLoss on ImageNet-100
+# Designed for RTX 3050 4GB (batch=128, fp16)
+
+experiment:
+  name: resnet18_imagenet100
+  seed: 42
+  alpha: 0.0
+  run_id: resnet18_baseline
+
+data:
+  dataset: imagenet-100
+  num_classes: 100
+  image_size: 224
+  data_dir: ../topo/data/imagenet-100
+  batch_size: 128
+  num_workers: 4
+
+model:
+  type: resnet18
+
+training:
+  epochs: 90
+  optimizer: adamw
+  lr: 0.001
+  weight_decay: 0.05
+  warmup_epochs: 5
+  lr_min: 0.00001
+  mixed_precision: true
+  grad_clip: 1.0
+  save_best: true
+
+topo_loss:
+  factor_h: 4.0
+  factor_w: 4.0
+  # Apply to conv layers in all 4 ResNet stages (skip stem conv1 — 3-channel input
+  # has no meaningful topographic structure to enforce)
+  layers:
+    - layer1.0.conv1
+    - layer1.0.conv2
+    - layer1.1.conv1
+    - layer1.1.conv2
+    - layer2.0.conv1
+    - layer2.0.conv2
+    - layer2.1.conv1
+    - layer2.1.conv2
+    - layer3.0.conv1
+    - layer3.0.conv2
+    - layer3.1.conv1
+    - layer3.1.conv2
+    - layer4.0.conv1
+    - layer4.0.conv2
+    - layer4.1.conv1
+    - layer4.1.conv2
+
+output:
+  checkpoints_dir: ../topo/topo_checkpoints
