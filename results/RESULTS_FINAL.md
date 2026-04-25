@@ -209,13 +209,48 @@ H2 reduction at α=1.0: **−2.1%** (vs −11% for ViT-S). Effect present but we
 |---|---|---|---|---|
 | TinyViT | **0.1** | 1.42× | 128 | 4L |
 | ViT-S/16 | **1.0** | 2.79× (20-class) | 384 | 12L |
-| ResNet-18 | pending | — | — | — |
+| ViT-Ti/16 | pending | — | 192 | 12L |
 
-**Hypothesis:** Optimal α scales with model width/weight magnitude. α=1.0 is too strong for 128-dim TinyViT — topo term dominates CE loss. Pending zero-cost verification (weight norm analysis + topo/CE loss ratio from training logs).
+### 9b. Alpha-Scaling Hypothesis (EXP_018)
 
-### 9b. ResNet-18 (ImageNet-100, 40 epochs, seed=42)
+**Why does optimal α differ across model sizes?**
 
-> In progress — launched 2026-04-25. Baseline (α=0.0) + Strong (α=1.0). Architecture variability check for conv-based models.
+TopoLoss penalises weight differences between spatially adjacent units: `topo_loss ∝ Σ(w_i − w_j)²`. Larger weight magnitudes → larger absolute topo gradients at the same nominal α. We measured `attn.proj` RMS weight norms (the only layers targeted by TopoLoss in this codebase) from saved checkpoints:
+
+| Model | α | attn.proj RMS norm | Norm growth vs own baseline |
+|---|---|---|---|
+| TinyViT | 0.0 | 0.0695 | — |
+| TinyViT | 1.0 | **0.2346** | **+237%** (explosion) |
+| ViT-S | 0.0 | 0.0432 | — |
+| ViT-S | 1.0 | 0.0548 | +27% (controlled) |
+
+**Key finding:** TinyViT at α=1.0 suffers weight norm explosion (3.4× baseline), while ViT-S remains stable (1.27×). This is the mechanism behind H3 degradation at α=1.0 for small models.
+
+**Effective α calculation** (topo_loss ∝ rms², reference = ViT-S baseline):
+
+| Run | Nominal α | α_eff (ViT-S scale) |
+|---|---|---|
+| TinyViT α=0.1 | 0.1 | 0.37 |
+| TinyViT α=1.0 | 1.0 | **2.6** (over-pressured) |
+| ViT-S α=0.1 | 0.1 | 0.11 |
+| ViT-S α=1.0 | 1.0 | 1.12 |
+
+TinyViT at α=1.0 is experiencing ~2.6× the topographic pressure ViT-S sees at α=1.0.
+
+**Predicted optimal α for ViT-Ti/16 (192D, 12L):** `α* ≈ 0.38`  
+(= ViT-S optimal α=1.0 × (rms_vits / rms_viti)², using baseline norms)
+
+**Planned experiment (ViT-Ti/16 sweep):** α ∈ {0.0, 0.1, 0.3, 1.0}, seed=42, 40 epochs.  
+Prediction: H3 peaks near α=0.3, not α=1.0. If confirmed, establishes the weight-norm scaling rule as a practical design recommendation.
+
+**Design rule:** `α_target = α_ref × (rms_ref_baseline / rms_target_baseline)²`
+
+Script: `scripts/run_alpha_scaling_analysis.py`  
+Output: `results/json/alpha_scaling.json`, `results/figures/alpha_scaling.png`
+
+### 9c. ResNet-18 (ImageNet-100, 40 epochs, seed=42)
+
+> Paused in favour of ViT-Ti/16 sweep. Baseline (α=0.0) + Strong (α=1.0). Will resume after ViT-Ti runs complete.
 
 ---
 
@@ -230,5 +265,6 @@ H2 reduction at α=1.0: **−2.1%** (vs −11% for ViT-S). Effect present but we
 | EXP_016 | `scripts/run_exp016_multiclass_patching.py` | ✅ Done | `json/exp016_multiclass_patching.json` |
 | EXP_017 | Post-hoc SOM control | ⬜ Not started | — |
 | TinyViT | 4L/128D/4H training (preliminary) | ✅ Done (exploratory) | `../topo/RESULTS.md` |
-| ResNet-18 | Baseline + Strong, seed=42, 40ep | 🔄 In progress (launched 2026-04-25) | `../topo/topo_checkpoints/resnet18_*/` |
-| α-scaling analysis | Weight norm + topo/CE ratio check | ⬜ Planned | — |
+| ResNet-18 | Baseline + Strong, seed=42, 40ep | ⏸ Paused (ViT-Ti prioritised) | `../topo/topo_checkpoints/resnet18_*/` |
+| EXP_018 | α-scaling: weight norm analysis | ✅ Done | `json/alpha_scaling.json`, `figures/alpha_scaling.png` |
+| ViT-Ti/16 sweep | α ∈ {0.0,0.1,0.3,1.0}, seed=42, 40ep | ⬜ Ready to launch | `../topo/topo_checkpoints/vit_ti_*/` |
