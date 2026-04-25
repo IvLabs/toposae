@@ -163,7 +163,63 @@ All three seeds individually exceed 2× — effect not driven by a single outlie
 
 ---
 
-## 9. Experiments index
+## 9. Architecture Variability
+
+### 9a. TinyViT (4L / 128D / 4H, ImageNet-100, 50 epochs, seed=42)
+
+> Preliminary — single seed, single-class patching (class 0, layer 2). Different methodology from ViT-S multi-seed/multi-class analysis. Treat as exploratory.
+
+**Training**
+
+| α | Val Acc | Best Epoch |
+|---|---|---|
+| 0.0 | 0.4718 | 49 |
+| 0.1 | 0.4624 | 48 |
+| 1.0 | 0.4570 | 50 |
+
+**H1 (entropy mono)**
+
+| α | Mean M_u | Frac > 0.5 |
+|---|---|---|
+| 0.0 | 0.2525 | 2.34% |
+| 0.1 | **0.2599** | **3.12%** |
+| 1.0 | 0.2491 | 1.56% |
+
+**H2 (SAE L0, full 126K activations)**
+
+| α | L0 | Dead % | Recon Loss |
+|---|---|---|---|
+| 0.0 | 444.9 | 2.0% | 5.9e-5 |
+| 0.1 | 443.7 | 2.5% | 5.2e-5 |
+| 1.0 | **435.5** | **2.9%** | **4.9e-5** |
+
+H2 reduction at α=1.0: **−2.1%** (vs −11% for ViT-S). Effect present but weaker.
+
+**H3 (patching ratio, class 0, layer 2)**
+
+| α | Cluster \|Δlogit\| | Random \|Δlogit\| | Ratio |
+|---|---|---|---|
+| 0.0 | 1.767 | 1.479 | 1.19× |
+| 0.1 | **1.884** | 1.331 | **1.42×** |
+| 1.0 | 1.662 | 1.487 | 1.12× |
+
+**Key contrast with ViT-S:**
+
+| Model | Optimal α for H3 | H3 peak ratio | Width | Depth |
+|---|---|---|---|---|
+| TinyViT | **0.1** | 1.42× | 128 | 4L |
+| ViT-S/16 | **1.0** | 2.79× (20-class) | 384 | 12L |
+| ResNet-18 | pending | — | — | — |
+
+**Hypothesis:** Optimal α scales with model width/weight magnitude. α=1.0 is too strong for 128-dim TinyViT — topo term dominates CE loss. Pending zero-cost verification (weight norm analysis + topo/CE loss ratio from training logs).
+
+### 9b. ResNet-18 (ImageNet-100, 40 epochs, seed=42)
+
+> In progress — launched 2026-04-25. Baseline (α=0.0) + Strong (α=1.0). Architecture variability check for conv-based models.
+
+---
+
+## 10. Experiments index
 
 | ID | Script | Status | Output |
 |---|---|---|---|
@@ -173,5 +229,6 @@ All three seeds individually exceed 2× — effect not driven by a single outlie
 | EXP_015 | `scripts/run_statistical_analysis.py` | ✅ Done | `json/statistical_analysis.json` |
 | EXP_016 | `scripts/run_exp016_multiclass_patching.py` | ✅ Done | `json/exp016_multiclass_patching.json` |
 | EXP_017 | Post-hoc SOM control | ⬜ Not started | — |
-| ViT-Ti/16 | Small-model training | ⬜ Not started | — |
-| ResNet-18 | Small-model training | ⬜ Not started | — |
+| TinyViT | 4L/128D/4H training (preliminary) | ✅ Done (exploratory) | `../topo/RESULTS.md` |
+| ResNet-18 | Baseline + Strong, seed=42, 40ep | 🔄 In progress (launched 2026-04-25) | `../topo/topo_checkpoints/resnet18_*/` |
+| α-scaling analysis | Weight norm + topo/CE ratio check | ⬜ Planned | — |
