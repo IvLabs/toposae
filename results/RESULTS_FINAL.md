@@ -201,13 +201,23 @@ H2 reduction at α=1.0: **−2.1%** (vs −11% for ViT-S). Effect present but we
 |---|---|---|---|
 | 0.0 | 1.767 | 1.479 | 1.19× |
 | 0.1 | **1.884** | 1.331 | **1.42×** |
+| 0.38 | 1.466 | 1.317 | 1.11× |
 | 1.0 | 1.662 | 1.487 | 1.12× |
+
+**H2 full sweep (SAE L0)**
+
+| α | L0 | Dead % |
+|---|---|---|
+| 0.0 | 444.9 | 2.0% |
+| 0.1 | 443.7 | 2.5% |
+| 0.38 | 437.5 | 1.4% |
+| 1.0 | **435.5** | **2.9%** |
 
 **Key contrast with ViT-S:**
 
 | Model | Optimal α for H3 | H3 peak ratio | Width | Depth |
 |---|---|---|---|---|
-| TinyViT | **0.1** (predicted optimal: 0.38) | 1.42× | 128 | 4L |
+| TinyViT | **0.1** | 1.42× | 128 | 4L |
 | ViT-S/16 | **1.0** | 2.79× (20-class) | 384 | 12L |
 
 ### 9b. Alpha-Scaling Hypothesis (EXP_018)
@@ -239,14 +249,22 @@ TinyViT at α=1.0 is experiencing ~2.6× the topographic pressure ViT-S sees at 
 **Predicted optimal α for TinyViT:** `α* ≈ 0.38`  
 (= ViT-S optimal α=1.0 × (rms_vits_baseline / rms_tinyvit_baseline)² = (0.0432/0.0695)²)
 
-**Planned experiment:** One new TinyViT run at α=0.38, seed=42, 50 epochs (same setup as existing TinyViT runs).  
-Prediction: H3 ratio at α=0.38 > H3 at α=0.1 and α=1.0, approaching ViT-S α=1.0 performance.  
-If confirmed: validates the weight-norm scaling rule as a practical design recommendation.
+**Result of α=0.38 run (EXP_018 validation, completed 2026-04-25):**
 
-**Design rule:** `α_target = α_ref × (rms_ref_baseline / rms_target_baseline)²`
+| Metric | α=0.1 | α=0.38 (predicted optimal) | α=1.0 |
+|---|---|---|---|
+| H3 ratio | **1.42×** | 1.11× | 1.12× |
+| H2 L0 | 443.7 | 437.5 | 435.5 |
+| H1 mean | 0.2599 | **0.2618** | 0.2491 |
+
+**Prediction was partially wrong.** H3 at α=0.38 (1.11×) is *worse* than α=0.1 (1.42×) and nearly identical to α=1.0 (1.12×). The weight-norm scaling rule does not predict H3 optimum for TinyViT.
+
+**Revised interpretation:** The weight-norm scaling rule captures H2 behaviour (L0 decreases monotonically as effective pressure increases, as expected). But H3 (causal circuit isolability) is additionally limited by **model depth**. TinyViT has only 4 layers — insufficient to form spatially coherent causal circuits even at the right pressure. ViT-S with 12 layers has enough depth to develop circuit structure. The optimal α for H3 in TinyViT appears to be genuinely low (~0.1) regardless of weight-norm normalisation.
+
+**Refined design rule:** For H2, use `α_target = α_ref × (rms_ref / rms_target)²`. For H3, depth is an additional prerequisite — the effect may not transfer to very shallow models regardless of α calibration.
 
 Script: `scripts/run_alpha_scaling_analysis.py`  
-Output: `results/json/alpha_scaling.json`, `results/figures/alpha_scaling.png`
+Output: `results/json/alpha_scaling.json`, `../topo/results/topo_mid_s42_analysis.json`
 
 ### 9c. ResNet-18 (ImageNet-100, 40 epochs, seed=42)
 
@@ -267,4 +285,4 @@ Output: `results/json/alpha_scaling.json`, `results/figures/alpha_scaling.png`
 | TinyViT | 4L/128D/4H training (preliminary) | ✅ Done (exploratory) | `../topo/RESULTS.md` |
 | ResNet-18 | Baseline + Strong, seed=42, 40ep | ⏸ Paused (ViT-Ti prioritised) | `../topo/topo_checkpoints/resnet18_*/` |
 | EXP_018 | α-scaling: weight norm analysis | ✅ Done | `json/alpha_scaling.json`, `figures/alpha_scaling.png` |
-| TinyViT α=0.38 | Predicted optimal run, seed=42, 50ep | ⬜ Ready to launch | `../topo/topo_checkpoints/topo_mid_s42/` |
+| TinyViT α=0.38 | Predicted optimal run, seed=42, 50ep | ✅ Done — H3 not improved (depth-limited) | `../topo/results/topo_mid_s42_analysis.json` |
