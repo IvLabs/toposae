@@ -207,9 +207,8 @@ H2 reduction at α=1.0: **−2.1%** (vs −11% for ViT-S). Effect present but we
 
 | Model | Optimal α for H3 | H3 peak ratio | Width | Depth |
 |---|---|---|---|---|
-| TinyViT | **0.1** | 1.42× | 128 | 4L |
+| TinyViT | **0.1** (predicted optimal: 0.38) | 1.42× | 128 | 4L |
 | ViT-S/16 | **1.0** | 2.79× (20-class) | 384 | 12L |
-| ViT-Ti/16 | pending | — | 192 | 12L |
 
 ### 9b. Alpha-Scaling Hypothesis (EXP_018)
 
@@ -237,11 +236,12 @@ TopoLoss penalises weight differences between spatially adjacent units: `topo_lo
 
 TinyViT at α=1.0 is experiencing ~2.6× the topographic pressure ViT-S sees at α=1.0.
 
-**Predicted optimal α for ViT-Ti/16 (192D, 12L):** `α* ≈ 0.38`  
-(= ViT-S optimal α=1.0 × (rms_vits / rms_viti)², using baseline norms)
+**Predicted optimal α for TinyViT:** `α* ≈ 0.38`  
+(= ViT-S optimal α=1.0 × (rms_vits_baseline / rms_tinyvit_baseline)² = (0.0432/0.0695)²)
 
-**Planned experiment (ViT-Ti/16 sweep):** α ∈ {0.0, 0.1, 0.3, 1.0}, seed=42, 40 epochs.  
-Prediction: H3 peaks near α=0.3, not α=1.0. If confirmed, establishes the weight-norm scaling rule as a practical design recommendation.
+**Planned experiment:** One new TinyViT run at α=0.38, seed=42, 50 epochs (same setup as existing TinyViT runs).  
+Prediction: H3 ratio at α=0.38 > H3 at α=0.1 and α=1.0, approaching ViT-S α=1.0 performance.  
+If confirmed: validates the weight-norm scaling rule as a practical design recommendation.
 
 **Design rule:** `α_target = α_ref × (rms_ref_baseline / rms_target_baseline)²`
 
@@ -267,4 +267,4 @@ Output: `results/json/alpha_scaling.json`, `results/figures/alpha_scaling.png`
 | TinyViT | 4L/128D/4H training (preliminary) | ✅ Done (exploratory) | `../topo/RESULTS.md` |
 | ResNet-18 | Baseline + Strong, seed=42, 40ep | ⏸ Paused (ViT-Ti prioritised) | `../topo/topo_checkpoints/resnet18_*/` |
 | EXP_018 | α-scaling: weight norm analysis | ✅ Done | `json/alpha_scaling.json`, `figures/alpha_scaling.png` |
-| ViT-Ti/16 sweep | α ∈ {0.0,0.1,0.3,1.0}, seed=42, 40ep | ⬜ Ready to launch | `../topo/topo_checkpoints/vit_ti_*/` |
+| TinyViT α=0.38 | Predicted optimal run, seed=42, 50ep | ⬜ Ready to launch | `../topo/topo_checkpoints/topo_mid_s42/` |
