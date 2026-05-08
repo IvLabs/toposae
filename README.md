@@ -1,83 +1,113 @@
-# Topo Monosemanticity Research Project
+# TopoSAE — Topographic Training as a Path to Monosemanticity
 
-## Project Overview
-Implementation of research plan for studying monosemanticity in neural networks using topological data analysis.
+Investigates whether spatially-constrained topographic training (TopoLoss) induces monosemanticity and reduces feature superposition in vision transformers. Primary model: **ViT-S/16** on **ImageNet-100**.
 
-## Quick Links
-- [Research Plan](RESEARCH_PLAN.md) - Full research plan extracted from original document
-- [Progress Tracker](PROGRESS.md) - **MAIN TRACKING FILE** - All results, graphs, and progress
-- [Experimental Results](results/)
-- [Code](src/)
-- [Notebooks](notebooks/)
+Target venue: ICML 2026 Mechanistic Interpretability Workshop.
 
-## Rules & Best Practices
+---
 
-### 1. Version Control
-- ✅ All code committed to this repository
-- ✅ Each experiment gets its own branch: `experiment/<name>`
-- ✅ Regular commits with descriptive messages
-- ✅ Tag major milestones: `v0.1-experiment-1`, etc.
+## Key Results
 
-### 2. Project Structure
-```
-topo/
-├── README.md                    # This file
-├── RESEARCH_PLAN.md            # Detailed research plan
-├── PROGRESS.md                 # 🎯 MAIN TRACKING FILE - All results here
-├── .gitignore
-├── src/                        # Source code
-│   ├── __init__.py
-│   ├── models/                 # Model implementations
-│   ├── experiments/            # Experiment code
-│   ├── analysis/               # Analysis utilities
-│   └── visualization/          # Visualization code
-├── notebooks/                  # Jupyter notebooks
-├── results/                    # All experimental results
-│   ├── figures/               # Generated graphs and plots
-│   ├── data/                  # Raw data files
-│   └── summaries/             # Summary reports
-├── configs/                    # Configuration files
-└── docs/                       # Documentation
+| Hypothesis | Result | Evidence |
+|---|---|---|
+| **H1** Polysemanticity ↓ | **Null** (neuron + SAE-feature level) | Entropy M_u flat across α; confirmed at 5k and 25k images |
+| **H2** Feature superposition ↓ | **Supported at α=1.0** | SAE L0 −11%, dead features 19×, p=0.007, d=7.1 |
+| **H3** Causal purity ↑ | **Strongly supported** | Patching ratio 2.79× vs 1.68×, p<0.0001, d=0.95 (20 classes, 3 seeds) |
+| **EXP_019** Spatial coherence ↑ | **Supported at α=1.0** | Top-k units 6.1% more co-localized, p=0.0005, d=0.66 |
+
+**Core claim:** Topographic training concentrates causally relevant circuitry in spatial clusters (H3) and reduces feature superposition (H2) without improving neuron-level selectivity (H1 null). Effects emerge at α=1.0; α≤0.1 leaves feature geometry largely unchanged.
+
+**Architecture variability:** TinyViT (4L/128D) shows weaker H2 (−2.1%) and H3 peaks at α=0.1 rather than α=1.0. Weight-norm analysis reveals TinyViT is over-pressured at α=1.0 (effective pressure 2.6× ViT-S). H3 may additionally require sufficient model depth.
+
+---
+
+## Setup
+
+```bash
+# Clone and install
+git clone git@github.com:Ashu-00/toposae.git
+cd toposae
+pip install -r requirements.txt
+
+# Download ImageNet-100
+python scripts/download_data.py
 ```
 
-### 3. Results Tracking
-- 🎯 **PROGRESS.md is the single source of truth**
-- All results, graphs, and findings go in PROGRESS.md
-- Graphs embedded as images with descriptions
-- Tables for quantitative results
-- Timestamps on all entries
+**Requirements:** Python 3.9+, PyTorch, timm, numpy, scikit-learn, matplotlib.
 
-### 4. Code Standards
-- Python 3.9+
-- Type hints required
-- Docstrings for all public functions
-- PEP 8 compliance
-- Unit tests for critical components
+---
 
-### 5. Experiment Protocol
-1. Create experiment branch
-2. Document hypothesis in PROGRESS.md
-3. Run experiment
-4. Log results with graphs in PROGRESS.md
-5. Analyze and conclude
-6. Merge back to main
+## How to Run
 
-### 6. Naming Conventions
-- Experiments: `exp_<number>_<short_description>`
-- Branches: `experiment/<name>` or `feature/<name>`
-- Files: snake_case.py
-- Results folders: YYYY-MM-DD_<experiment_name>
+### Training
+```bash
+# Single run
+python src/experiments/train.py --alpha 1.0 --seed 42
 
-## Current Status
-**Phase:** Setup ✅
-**Last Updated:** 2026-04-09
+# Multi-seed sweep (α ∈ {0.0, 0.1, 1.0}, seeds 42/123/456)
+bash scripts/run_all.sh
+```
 
-## Next Steps
-1. [ ] Extract and document full research plan from DOCX
-2. [ ] Set up development environment
-3. [ ] Begin implementing experiments
+### Analysis
+```bash
+# Main H1/H2/H3 analysis (ViT-S)
+python scripts/run_analysis_vit_s16.py
 
-## GitHub Integration
-- Repository: (Add your GitHub repo URL here)
-- Remote setup: `git remote add origin <url>`
-- Push regularly: `git push -u origin main`
+# Statistical tests (EXP_010/015)
+python scripts/run_statistical_analysis.py
+
+# H3 multiclass patching (EXP_016)
+python scripts/run_exp016_multiclass_patching.py
+
+# SAE monosemanticity — 25k train images (EXP_012b)
+python scripts/run_exp012_large_eval.py
+
+# Spatial coherence of top-k class units (EXP_019)
+python scripts/run_spatial_coherence.py
+
+# Layer-wise SAE L0 figure
+python scripts/plot_layerwise_sae_l0.py
+```
+
+---
+
+## Repo Structure
+
+```
+toposae/
+├── src/
+│   ├── models/             # Model definitions (ViT-S, TinyViT, ResNet-18)
+│   ├── experiments/        # Training loop + TopoLoss
+│   ├── analysis/           # SAE, patching, monosemanticity metrics
+│   ├── utils/
+│   └── visualization/
+├── scripts/                # One-off experiment and analysis scripts
+├── configs/                # Training configs
+├── notebooks/
+├── results/
+│   ├── figures/            # All generated plots
+│   ├── json/               # Raw numeric outputs
+│   ├── data/               # Cached activations
+│   ├── RESULTS_FINAL.md    # Full results writeup
+│   └── NEW_EXPERIMENTS.md  # Revision experiments (EXP_019, EXP_012b, layer-wise fig)
+└── PROGRESS.md             # Experiment log and tracking
+```
+
+---
+
+## Experiments Index
+
+| ID | Description | Status | Key output |
+|---|---|---|---|
+| EXP_010 | Accuracy–L0 confound (OLS) | ✅ | `json/statistical_analysis.json` |
+| EXP_011 | PCA dimensionality control | ✅ | `json/exp011_pca.json` |
+| EXP_012 | SAE feature mono (5k val) | ✅ null | `json/exp012_sae_monosemanticity.json` |
+| EXP_012b | SAE feature mono (25k train) | ✅ null confirmed | `json/exp012b_sae_monosemanticity_large.json` |
+| EXP_015 | Multi-seed paired t-tests | ✅ | `json/statistical_analysis.json` |
+| EXP_016 | H3 multiclass patching (20 classes) | ✅ | `json/exp016_multiclass_patching.json` |
+| EXP_018 | α-scaling / weight-norm analysis | ✅ | `json/alpha_scaling.json` |
+| EXP_019 | Spatial coherence of top-k units | ✅ | `json/spatial_coherence.json` |
+| TinyViT | 4L architecture variability | ✅ exploratory | `results/RESULTS_FINAL.md §9` |
+| ResNet-18 | Architecture variability | ⏸ paused | — |
+
+See [`results/RESULTS_FINAL.md`](results/RESULTS_FINAL.md) for full quantitative results and [`results/NEW_EXPERIMENTS.md`](results/NEW_EXPERIMENTS.md) for the three revision additions.
