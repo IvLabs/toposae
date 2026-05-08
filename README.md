@@ -2,8 +2,6 @@
 
 Investigates whether spatially-constrained topographic training (TopoLoss) induces monosemanticity and reduces feature superposition in vision transformers. Primary model: **ViT-S/16** on **ImageNet-100**.
 
-Target venue: ICML 2026 Mechanistic Interpretability Workshop.
-
 ---
 
 ## Key Results
