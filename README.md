@@ -90,22 +90,3 @@ toposae/
 │   └── NEW_EXPERIMENTS.md  # Revision experiments (EXP_019, EXP_012b, layer-wise fig)
 └── PROGRESS.md             # Experiment log and tracking
 ```
-
----
-
-## Experiments Index
-
-| ID | Description | Status | Key output |
-|---|---|---|---|
-| EXP_010 | Accuracy–L0 confound (OLS) | ✅ | `json/statistical_analysis.json` |
-| EXP_011 | PCA dimensionality control | ✅ | `json/exp011_pca.json` |
-| EXP_012 | SAE feature mono (5k val) | ✅ null | `json/exp012_sae_monosemanticity.json` |
-| EXP_012b | SAE feature mono (25k train) | ✅ null confirmed | `json/exp012b_sae_monosemanticity_large.json` |
-| EXP_015 | Multi-seed paired t-tests | ✅ | `json/statistical_analysis.json` |
-| EXP_016 | H3 multiclass patching (20 classes) | ✅ | `json/exp016_multiclass_patching.json` |
-| EXP_018 | α-scaling / weight-norm analysis | ✅ | `json/alpha_scaling.json` |
-| EXP_019 | Spatial coherence of top-k units | ✅ | `json/spatial_coherence.json` |
-| TinyViT | 4L architecture variability | ✅ exploratory | `results/RESULTS_FINAL.md §9` |
-| ResNet-18 | Architecture variability | ⏸ paused | — |
-
-See [`results/RESULTS_FINAL.md`](results/RESULTS_FINAL.md) for full quantitative results and [`results/NEW_EXPERIMENTS.md`](results/NEW_EXPERIMENTS.md) for the three revision additions.
