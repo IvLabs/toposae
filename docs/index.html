@@ -126,10 +126,9 @@
       </div>
 
       <figure class="fig-block fig-wide">
-        <div class="fig-placeholder">
-          <p>Figure 1 &mdash; Overview panels (TopoLoss schematic &middot; H2 SAE sparsity &middot; H3 causal purity).<br>
-          <em>Drop in the composite Fig&nbsp;1 PNG here (see <code>website/asset-manifest.md</code> Task&nbsp;6).</em></p>
-        </div>
+        <img src="assets/fig1_overview.png"
+             alt="Three-panel overview figure. Left: TopoLoss schematic showing a random baseline weight grid transforming into a topographically organised grid after adding the L_topo penalty. Centre: SAE sparsity plot — mean active features (L0) decreases 11% at alpha=1.0 while dead-feature fraction rises sharply (19-fold). Right: causal purity plot — cluster/random patching ratios for Baseline, TopoWeak, and TopoStrong; mean rises from 1.68 to 2.79x at alpha=1.0 (p less than 0.0001)."
+             loading="lazy">
         <figcaption>
           <strong>Figure&nbsp;1.</strong> <em>(a)</em> TopoLoss penalises weight differences between adjacent units,
           pushing functionally similar units to co-localise. <em>(b)</em> SAE L0 decreases monotonically with &alpha;,
