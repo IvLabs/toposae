@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Topographic Training Concentrates Causal Circuits — TopoSAE</title>
+  <meta name="description" content="A sub-0.1k-parameter training-time penalty concentrates a ViT's causal circuits 2.79× without improving neuron monosemanticity. ICML 2026 Mech-Interp Workshop.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+</head>
+<body>
+
+<!-- ── STICKY NAV ──────────────────────────────────────────────── -->
+<header class="site-nav" role="banner">
+  <div class="nav-inner">
+    <a class="nav-wordmark" href="#top">TopoSAE</a>
+    <nav aria-label="Page sections">
+      <a href="#abstract">Abstract</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="#video">Video</a>
+      <a href="#cite">Cite</a>
+      <a href="https://github.com/IvLabs/toposae" class="nav-github" aria-label="GitHub repository" target="_blank" rel="noopener">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ── 0 · HERO ──────────────────────────────────────────────── -->
+  <section class="section-hero" aria-labelledby="hero-title">
+    <div class="container">
+      <h1 id="hero-title">Topographic Training Concentrates Causal Circuits Without Improving Neuron Monosemanticity</h1>
+
+      <p class="authors">
+        Gautam Ranka,
+        <span class="equal">Shubham Pandere<sup>*</sup></span>,
+        <span class="equal">Aiden Ross D'souza<sup>*</sup></span>
+      </p>
+      <p class="affiliation">IvLabs, VNIT Nagpur, India &nbsp;&middot;&nbsp; <sup>*</sup>Equal contribution</p>
+      <p class="venue">Mechanistic Interpretability Workshop @ ICML 2026, Seoul</p>
+
+      <div class="hero-buttons">
+        <a href="assets/toposae.pdf" class="btn btn-primary" target="_blank" rel="noopener">&#128196; Paper</a>
+        <a href="https://github.com/IvLabs/toposae" class="btn btn-secondary" target="_blank" rel="noopener">&#128187; Code</a>
+        <a href="#video" class="btn btn-secondary">&#9654; Video</a>
+      </div>
+
+      <p class="tldr"><strong>TL;DR:</strong> A sub-0.1k-parameter training-time penalty (TopoLoss) concentrates a vision transformer's causal circuits into tight spatial clusters &mdash; <strong>2.79&times; more causally sufficient</strong> than random neuron sets &mdash; yet leaves individual neurons no more monosemantic. Interpretability gains here are a property of <em>circuits</em>, not <em>neurons</em>.</p>
+
+      <div class="stat-cards" aria-label="Key results">
+        <div class="stat-card">
+          <span class="stat-number" data-target="2.79" data-suffix="&times;" data-decimals="2">2.79&times;</span>
+          <span class="stat-label">causal sufficiency of topographic clusters vs.&nbsp;random</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" data-prefix="d&nbsp;=&nbsp;" data-target="0.95" data-decimals="2">d&nbsp;=&nbsp;0.95</span>
+          <span class="stat-label">effect size (p &lt; 0.0001)</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" data-prefix="&lt;" data-target="0.1" data-suffix="k" data-decimals="1">&lt;0.1k</span>
+          <span class="stat-label">extra parameters added by TopoLoss</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 1 · ABSTRACT ──────────────────────────────────────────── -->
+  <section id="abstract" class="section-alt" aria-labelledby="abstract-heading">
+    <div class="container container-prose">
+      <h2 id="abstract-heading">Abstract</h2>
+      <p>
+        Mechanistic interpretability of vision transformers seeks to decompose model
+        computation into human-readable units, but learned representations entangle many
+        concepts in each neuron. Feature superposition is widely treated as the central
+        obstacle to this decomposition, yet most mitigations (sparse autoencoders,
+        dictionary learning) are post-hoc and leave the underlying network unchanged.
+        We ask whether a spatial-locality training loss (TopoLoss) can act as a
+        lightweight, training-time prior that improves interpretability of standard
+        mech-interp tools. Training ViT on ImageNet-100 across multiple TopoLoss
+        weights &alpha;, we measure causal sufficiency of topographic clusters via activation
+        patching and feature geometry via sparse autoencoders fit to the same residual
+        stream. At &alpha;&nbsp;=&nbsp;1.0, topographic clusters are 2.79&times; more causally sufficient
+        than random unit sets of the same size, with the effect increasing monotonically
+        in &alpha;. SAE L0 sparsity decreases by 11% and dead-feature fraction rises 19-fold,
+        yet standard neuron-level monosemanticity scores are unchanged, indicating that
+        topographic pressure acts at circuit level, concentrating causal mass into
+        spatially local structures without disentangling individual neurons. This
+        dissociation suggests current neuron-level monosemanticity metrics are
+        insensitive to a class of real interpretability gains, and positions cheap
+        architectural priors as a viable training-time complement to post-hoc tooling.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 2 · METHOD ────────────────────────────────────────────── -->
+  <section id="method" aria-labelledby="method-heading">
+    <div class="container">
+      <h2 id="method-heading">Method: TopoLoss</h2>
+      <div class="equation-block">
+        $$\mathcal{L} = \mathcal{L}_{\text{CE}} + \mathcal{L}_{\text{topo}}, \qquad \mathcal{L}_{\text{topo}} = \alpha \sum_{(i,j)\in\mathcal{E}} \lVert w_i - w_j \rVert^2$$
+      </div>
+      <div class="method-gloss">
+        <p>
+          TopoLoss adds a weight-smoothness penalty between units that are <em>adjacent</em>
+          on a fixed 2D topographic grid, pushing functionally similar units to co-locate &mdash;
+          echoing cortical maps in biological vision. Applied to the attention-projection
+          weights (<code>attn.proj</code>) of all 12 ViT-S/16 blocks; units are arranged
+          on a $\sqrt{d} \times \sqrt{d}$ grid matching the head dimension.
+          <abbr class="tooltip" data-tip="Weight on the TopoLoss term; 0 = baseline, 1.0 = strong topography.">&alpha;</abbr>
+          controls pressure strength: it adds fewer than 0.1k parameters and costs
+          about 1.6&nbsp;pp accuracy at the strongest setting (&alpha;&nbsp;=&nbsp;1.0).
+        </p>
+        <p class="method-setup">
+          <strong>Setup:</strong> ViT-S/16 trained on ImageNet-100, &alpha;&nbsp;&isin;&nbsp;{0.0, 0.1, 1.0},
+          three seeds {42, 123, 456}. A 4-layer TinyViT (d&nbsp;=&nbsp;128) serves as a preliminary
+          scale probe.
+        </p>
+      </div>
+
+      <figure class="fig-block fig-wide">
+        <div class="fig-placeholder">
+          <p>Figure 1 &mdash; Overview panels (TopoLoss schematic &middot; H2 SAE sparsity &middot; H3 causal purity).<br>
+          <em>Drop in the composite Fig&nbsp;1 PNG here (see <code>website/asset-manifest.md</code> Task&nbsp;6).</em></p>
+        </div>
+        <figcaption>
+          <strong>Figure&nbsp;1.</strong> <em>(a)</em> TopoLoss penalises weight differences between adjacent units,
+          pushing functionally similar units to co-localise. <em>(b)</em> SAE L0 decreases monotonically with &alpha;,
+          while dead-feature fraction rises 19-fold at &alpha;&nbsp;=&nbsp;1.0. <em>(c)</em> Per-class causal patching ratios.
+          Topographic clusters at &alpha;&nbsp;=&nbsp;1.0 are 2.79&times; more causally sufficient than random unit sets
+          (p&nbsp;&lt;&nbsp;0.0001, d&nbsp;=&nbsp;0.95).
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── 3 · THREE QUESTIONS ───────────────────────────────────── -->
+  <section id="results" class="section-alt" aria-labelledby="results-heading">
+    <div class="container">
+      <h2 id="results-heading">Three Interpretability Axes</h2>
+      <p class="results-intro">We audit TopoLoss on three independent questions about what changes when you impose topographic structure at training time.</p>
+      <div class="hypothesis-cards">
+        <div class="h-card">
+          <div class="h-tag">H1</div>
+          <h3>Monosemanticity</h3>
+          <p>Do individual neurons become more class-selective?</p>
+          <p class="h-metric">Metric: entropy-based selectivity <abbr class="tooltip" data-tip="Normalised negative entropy of a neuron's class-activation distribution; 1 = perfectly selective.">M&#7524;</abbr></p>
+          <span class="verdict verdict-null">NULL</span>
+        </div>
+        <div class="h-card">
+          <div class="h-tag">H2</div>
+          <h3>Superposition</h3>
+          <p>Does SAE-measured feature complexity decrease?</p>
+          <p class="h-metric">Metric: SAE <abbr class="tooltip" data-tip="Number of SAE features active per token — lower means sparser, more specialized representations.">L0</abbr> norm + dead-feature fraction</p>
+          <span class="verdict verdict-warn">SUPPORTED *</span>
+        </div>
+        <div class="h-card">
+          <div class="h-tag">H3</div>
+          <h3>Causal Purity</h3>
+          <p>Are topographic clusters more causally sufficient than random sets?</p>
+          <p class="h-metric">Metric: activation-patching <abbr class="tooltip" data-tip="Causal effect of patching a topographic cluster divided by that of a same-size random set; &gt;1 means disproportionate causal weight.">logit-delta ratio</abbr></p>
+          <span class="verdict verdict-pos">SUPPORTED</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4 · H3 (lead result) ──────────────────────────────────── -->
+  <section id="h3" aria-labelledby="h3-heading">
+    <div class="container">
+      <div class="result-header">
+        <h2 id="h3-heading">H3 &mdash; Causal circuits concentrate</h2>
+        <span class="verdict verdict-pos">SUPPORTED</span>
+      </div>
+      <p>
+        Topographic clusters carry disproportionate causal weight. At &alpha;&nbsp;=&nbsp;1.0,
+        topographic clusters reach a patching ratio of <strong>2.79&nbsp;&plusmn;&nbsp;1.24</strong> vs
+        <strong>1.68&nbsp;&plusmn;&nbsp;0.42</strong> at baseline &mdash; a 66% increase.
+        The effect is <strong>monotone in &alpha;</strong> and robust across all three seeds
+        independently (per-seed ratios: 2.53, 2.89, 2.97).
+        Multi-class expansion (n&nbsp;=&nbsp;60): <strong>p&nbsp;&lt;&nbsp;0.0001,
+        <abbr class="tooltip" data-tip="Standardised effect size; ~0.5 medium, ~0.8+ large.">d</abbr>&nbsp;=&nbsp;0.95</strong>.
+      </p>
+
+      <div class="alpha-toggle" role="group" aria-label="Select alpha value to see result">
+        <button class="alpha-btn active" data-alpha="0.0">&alpha;&nbsp;=&nbsp;0.0</button>
+        <button class="alpha-btn" data-alpha="0.1">&alpha;&nbsp;=&nbsp;0.1</button>
+        <button class="alpha-btn" data-alpha="1.0">&alpha;&nbsp;=&nbsp;1.0</button>
+      </div>
+      <div class="alpha-readout" aria-live="polite">
+        <span class="alpha-ratio">1.68 &plusmn; 0.42</span>
+        <span class="alpha-caption">Baseline &mdash; near the random line</span>
+      </div>
+
+      <figure class="fig-block">
+        <a href="assets/fig2_h3_patching.pdf" target="_blank" rel="noopener" aria-label="Open Figure 2 full-resolution PDF">
+          <img src="assets/fig2_h3_patching.png"
+               alt="Scatter plot of per-class causal patch ratios for Baseline (alpha=0), TopoWeak (alpha=0.1), and TopoStrong (alpha=1.0). Mean ratio rises monotonically: 1.68, 2.27, 2.79. Both TopoWeak and TopoStrong are significantly above baseline (p less than 0.0001). The dashed line marks ratio=1, the random baseline."
+               loading="lazy">
+        </a>
+        <figcaption>
+          <strong>Figure&nbsp;2.</strong> H3: Causal patching ratios across 20&nbsp;classes &times; 3&nbsp;seeds (n&nbsp;=&nbsp;60).
+          Each point is the mean cluster/random logit-delta ratio for one class&nbsp;&times;&nbsp;seed combination.
+          Both TopoWeak (&alpha;&nbsp;=&nbsp;0.1) and TopoStrong (&alpha;&nbsp;=&nbsp;1.0) are significantly above baseline
+          (p&nbsp;&lt;&nbsp;0.0001, Cohen&rsquo;s d&nbsp;&ge;&nbsp;0.61). The dashed line marks the random-cluster baseline (ratio&nbsp;=&nbsp;1).
+        </figcaption>
+      </figure>
+
+      <p class="supporting">
+        <strong>Spatial coherence:</strong> The top-k&nbsp;=&nbsp;16 class units at &alpha;&nbsp;=&nbsp;1.0 are
+        6.1% more spatially concentrated than baseline (mean grid distance 9.948 vs 10.599;
+        p&nbsp;=&nbsp;0.0005, d&nbsp;=&nbsp;0.66), confirming the selected units genuinely co-localise on
+        the topographic sheet.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 5 · H2 ─────────────────────────────────────────────────── -->
+  <section id="h2" class="section-alt" aria-labelledby="h2-heading">
+    <div class="container">
+      <div class="result-header">
+        <h2 id="h2-heading">H2 &mdash; Superposition drops</h2>
+        <span class="verdict verdict-warn">SUPPORTED *</span>
+      </div>
+      <p>
+        At &alpha;&nbsp;=&nbsp;1.0, SAE <abbr class="tooltip" data-tip="Number of SAE features active per token — lower means sparser, more specialized representations.">L0</abbr>
+        decreases <strong>11%</strong> (1133.8 vs 1273.9; p&nbsp;=&nbsp;0.007,
+        <abbr class="tooltip" data-tip="Standardised effect size.">d</abbr>&nbsp;=&nbsp;7.06),
+        and <strong>dead-feature fraction rises 19-fold</strong> (3.8% vs 0.2%).
+        The L0 reduction is distributed across depth (layers 3&ndash;10, peak at layer 10).
+        The &alpha;&nbsp;=&nbsp;0.1 model shows neither effect reliably, confirming a threshold.
+      </p>
+
+      <div class="caveat-box" role="note" aria-label="Caveat: accuracy confound">
+        <strong>Caveat:</strong> We treat the L0 reduction as suggestive, not
+        confound-free. The &alpha;&nbsp;=&nbsp;1.0 model costs ~1.6&nbsp;pp accuracy (61.2%&nbsp;&rarr;&nbsp;59.6%),
+        and OLS regression of L0 on validation accuracy across all 9 ViT-S checkpoints
+        yields R&#178;&nbsp;=&nbsp;0.72 (p&nbsp;=&nbsp;0.004) &mdash; accuracy explains substantial L0 variance. Two
+        signs the effect isn&rsquo;t purely accuracy-driven are reported in the paper. An
+        accuracy-matched ablation is left to future work.
+      </div>
+
+      <figure class="fig-block">
+        <a href="assets/fig3_layerwise_sae.pdf" target="_blank" rel="noopener" aria-label="Open Figure 3 full-resolution PDF">
+          <img src="assets/fig3_layerwise_sae.png"
+               alt="Two line charts showing SAE L0 and dead-feature fraction per ViT layer 0 through 11 for Baseline (alpha=0, blue), TopoWeak (alpha=0.1, orange dashed), and TopoStrong (alpha=1.0, green). L0 for alpha=1.0 diverges below baseline at layer 3 and remains lower through layer 10. Dead-feature fraction for alpha=1.0 is sharply elevated, especially in early layers."
+               loading="lazy">
+        </a>
+        <figcaption>
+          <strong>Figure&nbsp;3.</strong> Layer-wise SAE L0 (seed&nbsp;42). The &alpha;&nbsp;=&nbsp;1.0 curve diverges from baseline
+          at layer&nbsp;3 and remains below through layer&nbsp;10; &alpha;&nbsp;=&nbsp;0.1 tracks baseline. Layer&nbsp;6 (used for
+          main-text H2/H3 analyses) lies in the middle of the effect band.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── 6 · H1 ─────────────────────────────────────────────────── -->
+  <section id="h1" aria-labelledby="h1-heading">
+    <div class="container">
+      <div class="result-header">
+        <h2 id="h1-heading">H1 &mdash; Neurons don&rsquo;t change</h2>
+        <span class="verdict verdict-null">NULL</span>
+      </div>
+      <p>
+        Entropy-based selectivity
+        <abbr class="tooltip" data-tip="Normalised negative entropy of a neuron's class-activation distribution; 1 = perfectly selective.">M&#7524;</abbr>
+        is <strong>flat across &alpha;</strong>: 0.234&nbsp;&plusmn;&nbsp;0.002 (&alpha;&nbsp;=&nbsp;0) vs 0.236&nbsp;&plusmn;&nbsp;0.002
+        (&alpha;&nbsp;=&nbsp;1.0); &Delta;&nbsp;=&nbsp;0.0019, not significant. The SAE-feature-level M&#7524; is also null,
+        including at a larger 25k-image evaluation.
+      </p>
+      <p>
+        <strong>Interpretation:</strong> Monosemanticity measures how one neuron spreads
+        across classes &mdash; a marginal statistic insensitive to the <em>joint</em> arrangement
+        of many neurons. TopoLoss reorganises neurons into functionally coherent spatial
+        clusters (H3) without changing per-neuron selectivity (H1). Consistent with the
+        superposition hypothesis: spatial co-location, not per-neuron selectivity, is the
+        relevant unit of circuit purity.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 7 · TAKEAWAY ──────────────────────────────────────────── -->
+  <section id="takeaway" class="section-alt" aria-labelledby="takeaway-heading">
+    <div class="container container-prose">
+      <h2 id="takeaway-heading">Takeaway</h2>
+      <p>
+        A penalty of fewer than 0.1k parameters, added to the training loss,
+        systematically shifts circuit <em>geometry</em> in a way existing tools can
+        measure (d&nbsp;=&nbsp;0.95 for H3) &mdash; at a modest cost (~1.6&nbsp;pp accuracy at &alpha;&nbsp;=&nbsp;1.0)
+        and without disentangling individual neurons. This positions cheap architectural
+        priors as a viable <strong>training-time complement to post-hoc tooling</strong>
+        like SAEs, and suggests current neuron-level monosemanticity metrics are blind
+        to a class of real interpretability gains.
+      </p>
+      <p>
+        <strong>Scale caveat:</strong> In a 4-layer TinyViT the H2 trend replicates
+        (L0 &minus;2.1% at &alpha;&nbsp;=&nbsp;1.0) but H3 saturates at just 1.42&times;, far below the ViT-S
+        result of 2.79&times; &mdash; consistent with a depth/scale requirement for circuit
+        formation. Limitations: single dataset (ImageNet-100), partial accuracy
+        confound on H2, single seed for TinyViT.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 8 · VIDEO ─────────────────────────────────────────────── -->
+  <section id="video" aria-labelledby="video-heading">
+    <div class="container">
+      <h2 id="video-heading">Video Walkthrough</h2>
+      <div class="video-wrap">
+        <video controls preload="none" poster="assets/video_poster.jpg"
+               aria-label="Animated walkthrough of TopoLoss and the H1/H2/H3 results">
+          <source src="assets/toposae_walkthrough.mp4" type="video/mp4">
+          <p>Your browser does not support HTML video.
+             <a href="assets/toposae_walkthrough.mp4">Download the video</a>.</p>
+        </video>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 9 · BIBTEX ────────────────────────────────────────────── -->
+  <section id="cite" class="section-alt" aria-labelledby="cite-heading">
+    <div class="container">
+      <h2 id="cite-heading">Citation</h2>
+      <div class="bibtex-wrap">
+        <button class="copy-btn" aria-label="Copy BibTeX to clipboard">Copy</button>
+        <pre class="bibtex"><code>@inproceedings{ranka2026topographic,
+  title     = {Topographic Training Concentrates Causal Circuits
+               Without Improving Neuron Monosemanticity},
+  author    = {Ranka, Gautam and Pandere, Shubham and D'souza, Aiden Ross},
+  booktitle = {Mechanistic Interpretability Workshop at the 43rd
+               International Conference on Machine Learning (ICML)},
+  year      = {2026}
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── FOOTER ────────────────────────────────────────────────── -->
+<footer class="site-footer">
+  <div class="container">
+    <p>
+      Gautam Ranka &middot; Shubham Pandere &middot; Aiden Ross D&rsquo;souza<br>
+      IvLabs, VNIT Nagpur, India &nbsp;&middot;&nbsp;
+      <a href="https://github.com/IvLabs/toposae" target="_blank" rel="noopener">GitHub</a>
+      &nbsp;&middot;&nbsp; 2026
+    </p>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
